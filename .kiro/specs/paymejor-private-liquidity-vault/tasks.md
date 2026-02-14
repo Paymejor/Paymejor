@@ -19,12 +19,12 @@ This implementation plan integrates real blockchain functionality into the exist
   - [x] 1.5 [Frontend] Remove any unused dependencies (Vesu, Ekubo not needed for MVP)
   - _Requirements: TR-4.5, TR-4.6, TR-4.7_
 
-- [ ] 2. [Frontend] Environment Configuration
-  - [ ] 2.1 [Frontend] Create .env.local with Starknet Sepolia RPC URL
-  - [ ] 2.2 [Frontend] Add environment variables for contract addresses
-  - [ ] 2.3 [Frontend] Create lib/constants.ts with network config and addresses
-  - [ ] 2.4 [Frontend] Add environment variable validation on app startup
-  - [ ] 2.5 [Frontend] Document all required environment variables in README
+- [x] 2. [Frontend] Environment Configuration
+  - [x] 2.1 [Frontend] Create .env.local with Starknet Sepolia RPC URL
+  - [x] 2.2 [Frontend] Add environment variables for contract addresses
+  - [x] 2.3 [Frontend] Create lib/constants.ts with network config and addresses
+  - [x] 2.4 [Frontend] Add environment variable validation on app startup
+  - [x] 2.5 [Frontend] Document all required environment variables in README
   - _Requirements: TR-4.21, TR-4.24_
 
 - [ ] 3. [Frontend] Create Type Definitions
@@ -126,7 +126,7 @@ This implementation plan integrates real blockchain functionality into the exist
   - [ ] 12.1 [Contract] Initialize Scarb project for PayMejor Vault
   - [ ] 12.2 [Contract] Add dependencies: Tongo interfaces, OpenZeppelin
   - [ ] 12.3 [Contract] Define Position struct with encrypted fields
-  - [ ] 12.4 [Contract] Set up storage with LegacyMap for positions
+  - [ ] 12.4 [Contract] Set up storage with Map for positions
   - [ ] 12.5 [Contract] Add initialization with Tongo protocol address
   - _Requirements: TR-4.7, TR-4.8_
 
@@ -329,7 +329,7 @@ This implementation plan integrates real blockchain functionality into the exist
 - Faster MVP implementation
 
 **Simplified Leverage Loop**:
-- No Ekubo DEX integration
+- Ekubo DEX integration
 - Simple: borrow → re-deposit
 - Faster MVP implementation
 

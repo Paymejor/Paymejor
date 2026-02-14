@@ -67,12 +67,12 @@ This implementation plan integrates real blockchain functionality into the exist
 
 ## Phase 3: Dashboard Tab - Real Data & Bridge (Days 2-3)
 
-- [ ] 7. [Frontend] Update Dashboard with Real Balances
-  - [ ] 7.1 [Frontend] Update dashboard-tab.tsx to fetch real wBTC balance
-  - [ ] 7.2 [Frontend] Fetch real USDC balance from connected wallet
-  - [ ] 7.3 [Frontend] Replace hardcoded stats with real blockchain data
-  - [ ] 7.4 [Frontend] Add loading states while fetching data
-  - [ ] 7.5 [Frontend] Add error handling for failed fetches
+- [x] 7. [Frontend] Update Dashboard with Real Balances
+  - [x] 7.1 [Frontend] Update dashboard-tab.tsx to fetch real wBTC balance
+  - [x] 7.2 [Frontend] Fetch real USDC balance from connected wallet
+  - [x] 7.3 [Frontend] Replace hardcoded stats with real blockchain data
+  - [x] 7.4 [Frontend] Add loading states while fetching data
+  - [x] 7.5 [Frontend] Add error handling for failed fetches
   - _Requirements: AC-1.6, TR-4.17_
 
 - [ ] 8. [Frontend] Implement Atomiq Bridge Widget

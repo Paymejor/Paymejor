@@ -1,12 +1,107 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AlertCircle, Lock, TrendingUp } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useWallet } from '@/lib/wallet-context'
+import { useStarknet } from '@/hooks/useStarknet'
+import { CONTRACT_ADDRESSES, TOKEN_METADATA } from '@/lib/constants'
+
+/**
+ * DashboardTab Component
+ * 
+ * Displays user's wallet balances and position overview with real blockchain data.
+ * Implements:
+ * - Real wBTC balance fetching (AC-1.6, TR-4.17)
+ * - Real USDC balance fetching (AC-1.6, TR-4.17)
+ * - Loading states during data fetch
+ * - Error handling for failed fetches
+ */
 
 export function DashboardTab() {
+  const { isConnected, address } = useWallet()
+  const { getBalance } = useStarknet()
+  
+  // Balance state
+  const [wBTCBalance, setWBTCBalance] = useState<string>('0')
+  const [usdcBalance, setUSDCBalance] = useState<string>('0')
+  
+  // Loading and error states
+  const [isLoadingBalances, setIsLoadingBalances] = useState(false)
+  const [balanceError, setBalanceError] = useState<string | null>(null)
+  
+  // Fetch balances when wallet is connected
+  useEffect(() => {
+    if (!isConnected || !address) {
+      // Reset balances when disconnected
+      setWBTCBalance('0')
+      setUSDCBalance('0')
+      setBalanceError(null)
+      return
+    }
+    
+    const fetchBalances = async () => {
+      setIsLoadingBalances(true)
+      setBalanceError(null)
+      
+      try {
+        // Fetch wBTC balance
+        const wbtcBal = await getBalance(CONTRACT_ADDRESSES.wBTC, address)
+        setWBTCBalance(wbtcBal)
+        
+        // Fetch USDC balance
+        const usdcBal = await getBalance(CONTRACT_ADDRESSES.USDC, address)
+        setUSDCBalance(usdcBal)
+      } catch (error) {
+        console.error('Error fetching balances:', error)
+        setBalanceError(error instanceof Error ? error.message : 'Failed to fetch balances')
+      } finally {
+        setIsLoadingBalances(false)
+      }
+    }
+    
+    fetchBalances()
+  }, [isConnected, address, getBalance])
+  
+  // Format balance for display
+  const formatBalance = (balance: string, decimals: number): string => {
+    try {
+      const balanceBigInt = BigInt(balance)
+      const divisor = BigInt(10 ** decimals)
+      const integerPart = balanceBigInt / divisor
+      const fractionalPart = balanceBigInt % divisor
+      
+      // Format with appropriate decimal places
+      const fractionalStr = fractionalPart.toString().padStart(decimals, '0')
+      const displayDecimals = decimals === 8 ? 8 : 6 // wBTC: 8, USDC: 6
+      const truncatedFractional = fractionalStr.slice(0, displayDecimals)
+      
+      return `${integerPart}.${truncatedFractional}`
+    } catch (error) {
+      console.error('Error formatting balance:', error)
+      return '0.00'
+    }
+  }
+  
+  const formattedWBTC = formatBalance(wBTCBalance, TOKEN_METADATA.wBTC.decimals)
+  const formattedUSDC = formatBalance(usdcBalance, TOKEN_METADATA.USDC.decimals)
+  
+  // Render balance with loading state
+  const renderBalance = (balance: string, symbol: string, isLoading: boolean) => {
+    if (!isConnected) {
+      return <div className="text-2xl font-bold text-muted-foreground">--</div>
+    }
+    
+    if (isLoading) {
+      return <Skeleton className="h-8 w-32" />
+    }
+    
+    return <div className="text-2xl font-bold">{balance} {symbol}</div>
+  }
   return (
     <div className="space-y-6">
       {/* Hero Card */}
@@ -38,59 +133,64 @@ export function DashboardTab() {
         </AlertDescription>
       </Alert>
 
+      {/* Error Alert */}
+      {balanceError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {balanceError}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-3">
-        {/* Total Collateral */}
+        {/* Wallet wBTC Balance */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Collateral (Private)
+              Wallet wBTC Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {renderBalance(formattedWBTC, 'wBTC', isLoadingBalances)}
+              <p className="text-xs text-muted-foreground">
+                {isConnected ? 'Available to deposit' : 'Connect wallet to view'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Wallet USDC Balance */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Wallet USDC Balance
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {renderBalance(formattedUSDC, 'USDC', isLoadingBalances)}
+              <p className="text-xs text-muted-foreground">
+                {isConnected ? 'Available for operations' : 'Connect wallet to view'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Shielded Position */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Shielded Position (Private)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="text-2xl font-bold">**** wBTC</div>
               <p className="text-xs text-muted-foreground">
-                Use "Reveal My Private Position" to decrypt
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Borrowed */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Borrowed (Private)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="text-2xl font-bold">**** USDC</div>
-              <p className="text-xs text-muted-foreground">
-                Interest rate: 5% APY (estimated)
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Health Factor */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Health Factor
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="text-2xl font-bold">1.8</div>
-                <Badge className="bg-green-500/20 text-green-700 dark:text-green-400">
-                  Safe
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Liquidation at 1.0
+                Use "Reveal Position" to decrypt
               </p>
             </div>
           </CardContent>

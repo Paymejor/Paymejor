@@ -55,12 +55,12 @@ This implementation plan integrates real blockchain functionality into the exist
   - [x] 5.5 [Frontend] Verify BTC + Starknet address display
   - _Requirements: AC-1.4, AC-1.5, NFR-5.9_
 
-- [ ] 6. [Frontend] Create Starknet Hook
-  - [ ] 6.1 [Frontend] Create hooks/useStarknet.ts for blockchain interactions
-  - [ ] 6.2 [Frontend] Implement getBalance() to fetch real token balances
-  - [ ] 6.3 [Frontend] Implement sendTransaction() wrapper with error handling
-  - [ ] 6.4 [Frontend] Implement waitForTransaction() to poll tx status
-  - [ ] 6.5 [Frontend] Add transaction state management
+- [x] 6. [Frontend] Create Starknet Hook
+  - [x] 6.1 [Frontend] Create hooks/useStarknet.ts for blockchain interactions
+  - [x] 6.2 [Frontend] Implement getBalance() to fetch real token balances
+  - [x] 6.3 [Frontend] Implement sendTransaction() wrapper with error handling
+  - [x] 6.4 [Frontend] Implement waitForTransaction() to poll tx status
+  - [x] 6.5 [Frontend] Add transaction state management
   - _Requirements: TR-4.17, TR-4.20_
 
 ---

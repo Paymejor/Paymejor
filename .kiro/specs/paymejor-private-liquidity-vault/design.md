@@ -1,105 +1,124 @@
-# PayMejor - Private NGN Liquidity Vault Design
+# PayMejor - Private NGN Liquidity Vault Design (Production-Ready)
 
 ## 1. System Architecture
 
-### 1.1 High-Level Architecture
+### 1.1 Overview
+
+This design document describes the production-ready implementation of PayMejor, integrating real blockchain functionality into the existing Next.js frontend. All components interact with live protocols on Starknet Sepolia testnet.
+
+**Key Principle**: No mocks or simulations. Every feature uses real smart contracts, real tokens, and real protocol integrations.
+
+### 1.2 High-Level Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         Frontend (Next.js)                   │
+│                    Existing Frontend (Next.js)               │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Xverse     │  │   Atomiq     │  │    Tongo     │      │
-│  │  Connector   │  │     SDK      │  │     SDK      │      │
+│  │ get-starknet │  │    Tongo     │  │     Vesu     │      │
+│  │   (Wallet)   │  │     SDK      │  │     SDK      │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
 │           │                │                 │               │
 │           └────────────────┴─────────────────┘               │
 │                            │                                 │
-│                     Starknet.js                              │
+│                     Starknet.js v6+                          │
 └────────────────────────────┬────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                  Starknet Sepolia Testnet                    │
+│              Starknet Sepolia Testnet (Real)                 │
 │                                                               │
 │  ┌──────────────────┐    ┌──────────────────┐              │
 │  │  PayMejor Vault  │───▶│  Vesu Protocol   │              │
-│  │   (Cairo)        │    │  (Lending Pools) │              │
+│  │   (Deployed)     │    │  (Live Testnet)  │              │
 │  └──────────────────┘    └──────────────────┘              │
 │           │                                                  │
 │           ▼                                                  │
 │  ┌──────────────────┐    ┌──────────────────┐              │
 │  │ Tongo Protocol   │    │  wBTC Token      │              │
-│  │ (Privacy Layer)  │    │  (ERC20)         │              │
+│  │ (Live Testnet)   │    │  (Real ERC20)    │              │
 │  └──────────────────┘    └──────────────────┘              │
+│           │                                                  │
+│           ▼                                                  │
+│  ┌──────────────────┐                                       │
+│  │  Ekubo DEX       │                                       │
+│  │ (Live Testnet)   │                                       │
+│  └──────────────────┘                                       │
 └─────────────────────────────────────────────────────────────┘
                              ▲
                              │
                     ┌────────┴────────┐
                     │  Atomiq Bridge  │
-                    │  (BTC → wBTC)   │
+                    │  (External App) │
                     └─────────────────┘
 ```
 
-### 1.2 Component Responsibilities
+### 1.3 Existing Frontend Structure
 
-**Frontend Layer**:
-- User interface and interaction flow
-- Wallet connection management (Xverse)
-- SDK orchestration (Atomiq, Tongo, Starknet.js)
-- Transaction state management
-- Privacy decryption and display
+The application already has a complete UI with these tabs:
+- **Dashboard Tab**: Overview, quick actions, stats
+- **Deposit Tab**: Shield & deposit collateral
+- **Borrow Tab**: Borrow USDC with leverage options
+- **Positions Tab**: View and manage positions
+- **Exit Tab**: NGN off-ramp information
 
-**Smart Contract Layer**:
-- PayMejor Vault: Core business logic
-- Tongo Protocol: Privacy/encryption layer
-- Vesu Protocol: Lending/borrowing logic
-- wBTC Token: Collateral asset
-
-**Bridge Layer**:
-- Atomiq: Trustless BTC → wBTC conversion
+**Implementation Strategy**: Integrate real blockchain functionality into these existing components without changing the UI structure.
 
 ## 2. Data Models
 
-### 2.1 User Position (On-Chain - Encrypted)
+### 2.1 User Position (On-Chain - Encrypted via Tongo)
 
 ```cairo
 struct Position {
     owner: ContractAddress,
-    shielded_collateral: felt252,  // Encrypted wBTC amount
-    shielded_debt: felt252,         // Encrypted USDC amount
-    tongo_account: ContractAddress, // User's Tongo account
-    last_updated: u64,
+    shielded_collateral: felt252,  // Encrypted wBTC amount (Tongo ciphertext)
+    shielded_debt: felt252,         // Encrypted USDC amount (Tongo ciphertext)
+    tongo_account: ContractAddress, // User's Tongo account address
+    last_updated: u64,              // Timestamp of last update
 }
 ```
 
-### 2.2 Frontend State (Client-Side)
+### 2.2 Frontend State (Client-Side - Real Data)
 
 ```typescript
-interface UserState {
-  // Wallet
-  walletAddress: string | null;
+// Wallet State (from get-starknet)
+interface WalletState {
   isConnected: boolean;
-  
-  // Bridge
-  bridgeStatus: 'idle' | 'pending' | 'confirmed' | 'completed';
-  bridgedAmount: string;
-  
-  // Position (decrypted)
-  collateralBalance: string;
-  debtBalance: string;
-  ltv: number;
-  liquidationThreshold: number;
-  
-  // Transactions
-  pendingTx: string | null;
-  txHistory: Transaction[];
+  address: string | null;
+  account: AccountInterface | null;  // Real Starknet account
+  network: 'sepolia' | 'mainnet';
 }
 
-interface Transaction {
-  hash: string;
-  type: 'deposit' | 'borrow' | 'loop';
+// Position State (from blockchain)
+interface PositionState {
+  // Raw encrypted data from contract
+  encryptedCollateral: string;
+  encryptedDebt: string;
+  
+  // Decrypted data (after Tongo decryption)
+  collateralBalance: string | null;  // wBTC amount
+  debtBalance: string | null;        // USDC amount
+  
+  // Calculated from Vesu
+  ltv: number;
+  healthFactor: number;
+  liquidationThreshold: number;
+  borrowingCapacity: string;
+}
+
+// Transaction State (real blockchain transactions)
+interface TransactionState {
+  hash: string;                      // Real Starknet tx hash
+  type: 'deposit' | 'borrow' | 'loop' | 'approve';
   status: 'pending' | 'confirmed' | 'failed';
   timestamp: number;
+  explorerUrl: string;               // Link to Voyager
+}
+
+// Token Balances (from blockchain)
+interface TokenBalances {
+  wBTC: string;                      // Real balance from contract
+  USDC: string;                      // Real balance from contract
+  ETH: string;                       // For gas fees
 }
 ```
 

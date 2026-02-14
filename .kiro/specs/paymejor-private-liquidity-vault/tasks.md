@@ -47,12 +47,12 @@ This implementation plan integrates real blockchain functionality into the exist
   - [x] 4.5 [Frontend] Add network detection (ensure Sepolia)
   - _Requirements: AC-1.1, AC-1.2, AC-1.3, TR-4.15_
 
-- [ ] 5. [Frontend] Update Navbar Component
-  - [ ] 5.1 [Frontend] Update navbar.tsx to display real Xverse wallet address
-  - [ ] 5.2 [Frontend] Add network indicator showing "Starknet Sepolia"
-  - [ ] 5.3 [Frontend] Add wallet connection error handling
-  - [ ] 5.4 [Frontend] Test with Xverse wallet on Sepolia
-  - [ ] 5.5 [Frontend] Verify BTC + Starknet address display
+- [x] 5. [Frontend] Update Navbar Component
+  - [x] 5.1 [Frontend] Update navbar.tsx to display real Xverse wallet address
+  - [x] 5.2 [Frontend] Add network indicator showing "Starknet Sepolia"
+  - [x] 5.3 [Frontend] Add wallet connection error handling
+  - [x] 5.4 [Frontend] Test with Xverse wallet on Sepolia
+  - [x] 5.5 [Frontend] Verify BTC + Starknet address display
   - _Requirements: AC-1.4, AC-1.5, NFR-5.9_
 
 - [ ] 6. [Frontend] Create Starknet Hook

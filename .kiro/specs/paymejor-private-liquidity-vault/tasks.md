@@ -11,12 +11,12 @@ This implementation plan integrates real blockchain functionality into the exist
 
 ## Phase 1: Environment Setup & Dependencies (Day 1)
 
-- [ ] 1. [Frontend] Install Blockchain Dependencies
-  - [ ] 1.1 [Frontend] Install starknet.js v6+ (`pnpm add starknet@next`)
-  - [ ] 1.2 [Frontend] Install Xverse SDK/connector (check xverse.app/dev for package)
-  - [ ] 1.3 [Frontend] Install Atomiq SDK (`pnpm add @atomiqlabs/sdk`)
-  - [ ] 1.4 [Frontend] Install Tongo SDK (`pnpm add @fatsolutions/tongo-sdk`)
-  - [ ] 1.5 [Frontend] Remove any unused dependencies (Vesu, Ekubo not needed for MVP)
+- [x] 1. [Frontend] Install Blockchain Dependencies
+  - [x] 1.1 [Frontend] Install starknet.js v6+ (`pnpm add starknet@next`)
+  - [x] 1.2 [Frontend] Install Xverse SDK/connector (check xverse.app/dev for package)
+  - [x] 1.3 [Frontend] Install Atomiq SDK (`pnpm add @atomiqlabs/sdk`)
+  - [x] 1.4 [Frontend] Install Tongo SDK (`pnpm add @fatsolutions/tongo-sdk`)
+  - [x] 1.5 [Frontend] Remove any unused dependencies (Vesu, Ekubo not needed for MVP)
   - _Requirements: TR-4.5, TR-4.6, TR-4.7_
 
 - [ ] 2. [Frontend] Environment Configuration

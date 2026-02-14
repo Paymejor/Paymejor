@@ -39,12 +39,12 @@ This implementation plan integrates real blockchain functionality into the exist
 
 ## Phase 2: Real Wallet Integration (Days 1-2)
 
-- [ ] 4. [Frontend] Replace Mock Wallet Context
-  - [ ] 4.1 [Frontend] Update lib/wallet-context.tsx to use Xverse SDK
-  - [ ] 4.2 [Frontend] Implement real connect() for Xverse wallet
-  - [ ] 4.3 [Frontend] Implement real disconnect() with cleanup
-  - [ ] 4.4 [Frontend] Store real Starknet AccountInterface in context
-  - [ ] 4.5 [Frontend] Add network detection (ensure Sepolia)
+- [x] 4. [Frontend] Replace Mock Wallet Context
+  - [x] 4.1 [Frontend] Update lib/wallet-context.tsx to use Xverse SDK
+  - [x] 4.2 [Frontend] Implement real connect() for Xverse wallet
+  - [x] 4.3 [Frontend] Implement real disconnect() with cleanup
+  - [x] 4.4 [Frontend] Store real Starknet AccountInterface in context
+  - [x] 4.5 [Frontend] Add network detection (ensure Sepolia)
   - _Requirements: AC-1.1, AC-1.2, AC-1.3, TR-4.15_
 
 - [ ] 5. [Frontend] Update Navbar Component

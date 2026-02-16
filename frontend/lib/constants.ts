@@ -74,6 +74,29 @@ export function getDefaultNetwork(): SupportedNetwork {
     : 'sepolia';
 }
 
+/**
+ * Verify that the wallet is on the correct network before transaction
+ * Requirements: TR-4.34
+ */
+export async function verifyNetworkMatch(
+  walletChainId: string,
+  expectedNetwork: SupportedNetwork
+): Promise<boolean> {
+  const config = getNetworkConfig(expectedNetwork);
+  return walletChainId === config.chainId;
+}
+
+/**
+ * Get user-friendly network mismatch error message
+ * Requirements: TR-4.34
+ */
+export function getNetworkMismatchError(
+  expectedNetwork: SupportedNetwork
+): string {
+  const networkName = expectedNetwork === 'sepolia' ? 'Starknet Sepolia' : 'Starknet Mainnet';
+  return `Please switch your wallet to ${networkName} to continue`;
+}
+
 // ============================================================================
 // Legacy Support (Deprecated - use getNetworkConfig instead)
 // ============================================================================

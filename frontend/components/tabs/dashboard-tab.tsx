@@ -72,6 +72,14 @@ export function DashboardTab() {
     }
     
     fetchBalances()
+    
+    // Refresh balances when network changes
+    const handleNetworkChange = () => {
+      fetchBalances()
+    }
+    
+    window.addEventListener('paymejor_network_changed', handleNetworkChange)
+    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
   }, [isConnected, address, getBalance])
   
   /**

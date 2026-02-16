@@ -47,6 +47,14 @@ export function DepositTab() {
     }
     
     fetchBalance()
+    
+    // Refresh balance when network changes
+    const handleNetworkChange = () => {
+      fetchBalance()
+    }
+    
+    window.addEventListener('paymejor_network_changed', handleNetworkChange)
+    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
   }, [isConnected, address, network, getBalance])
 
   /**

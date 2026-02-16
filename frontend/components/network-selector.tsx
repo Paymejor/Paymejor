@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, ChevronDown, Globe } from 'lucide-react'
+import { Check, ChevronDown, Globe, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -11,14 +11,16 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { useNetwork } from '@/hooks/useNetwork'
 import { SupportedNetwork } from '@/lib/constants'
+import { useToast } from '@/hooks/use-toast'
 
 /**
  * NetworkSelector Component
  * 
  * Dropdown component for switching between Sepolia and Mainnet.
  * Displays current network and allows user to switch.
+ * Shows loading state during network switch.
  * 
- * Requirements: TR-4.1, TR-4.27, AC-1.4
+ * Requirements: TR-4.1, TR-4.27, TR-4.34, AC-1.4
  */
 
 interface NetworkOption {
@@ -44,9 +46,33 @@ const NETWORK_OPTIONS: NetworkOption[] = [
 ]
 
 export function NetworkSelector() {
-  const { network, switchNetwork } = useNetwork()
+  const { network, switchNetwork, isSwitching } = useNetwork()
+  const { toast } = useToast()
 
   const currentNetwork = NETWORK_OPTIONS.find(opt => opt.value === network)
+
+  const handleNetworkSwitch = async (newNetwork: SupportedNetwork) => {
+    if (newNetwork === network) return
+
+    try {
+      await switchNetwork(newNetwork)
+      
+      toast({
+        title: 'Network Switched',
+        description: `Switched to ${NETWORK_OPTIONS.find(opt => opt.value === newNetwork)?.label}`,
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error('Failed to switch network:', error)
+      
+      toast({
+        title: 'Network Switch Failed',
+        description: 'Failed to switch network. Please try again.',
+        variant: 'destructive',
+        duration: 5000,
+      })
+    }
+  }
 
   return (
     <DropdownMenu>
@@ -55,19 +81,29 @@ export function NetworkSelector() {
           variant="outline"
           size="sm"
           className="gap-2 border-border/50 hover:border-border"
+          disabled={isSwitching}
         >
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">{currentNetwork?.label}</span>
-          <span className="sm:hidden">{currentNetwork?.badge}</span>
-          <ChevronDown className="h-3 w-3 opacity-50" />
+          {isSwitching ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Globe className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">
+            {isSwitching ? 'Switching...' : currentNetwork?.label}
+          </span>
+          <span className="sm:hidden">
+            {isSwitching ? '...' : currentNetwork?.badge}
+          </span>
+          {!isSwitching && <ChevronDown className="h-3 w-3 opacity-50" />}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {NETWORK_OPTIONS.map((option) => (
           <DropdownMenuItem
             key={option.value}
-            onClick={() => switchNetwork(option.value)}
+            onClick={() => handleNetworkSwitch(option.value)}
             className="flex items-start gap-3 cursor-pointer"
+            disabled={isSwitching || network === option.value}
           >
             <div className="flex h-5 items-center">
               {network === option.value && (

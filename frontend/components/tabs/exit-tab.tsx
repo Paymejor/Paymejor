@@ -40,7 +40,7 @@ export function ExitTab() {
 
   /**
    * Fetch real USDC balance from blockchain
-   * Requirement: AC-7.1
+   * Requirement: AC-7.1, TR-4.27
    */
   useEffect(() => {
     async function fetchBalance() {
@@ -66,6 +66,14 @@ export function ExitTab() {
     }
 
     fetchBalance()
+    
+    // Refresh balance when network changes
+    const handleNetworkChange = () => {
+      fetchBalance()
+    }
+    
+    window.addEventListener('paymejor_network_changed', handleNetworkChange)
+    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
   }, [isConnected, address, network, getBalance])
 
   const handleWithdraw = async () => {

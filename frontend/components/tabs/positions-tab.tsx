@@ -137,10 +137,18 @@ export function PositionsTab() {
 
   /**
    * Fetch position on mount and when network/address changes
-   * Requirements: AC-6.8, AC-6.9
+   * Requirements: AC-6.8, AC-6.9, TR-4.27
    */
   useEffect(() => {
     fetchPosition()
+    
+    // Refresh position when network changes
+    const handleNetworkChange = () => {
+      fetchPosition()
+    }
+    
+    window.addEventListener('paymejor_network_changed', handleNetworkChange)
+    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
   }, [address, network, isConnected])
 
   /**

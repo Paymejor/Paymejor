@@ -239,8 +239,8 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test timeout handling
     - _Requirements: TR-4.25, TR-4.31_
 
-- [ ] 11. Network Switching & Configuration
-  - [ ] 11.1 Implement network switching functionality
+- [-] 11. Network Switching & Configuration
+  - [x] 11.1 Implement network switching functionality
     - Create network selector dropdown in navbar
     - Update all contract addresses on network change
     - Update RPC provider on network change

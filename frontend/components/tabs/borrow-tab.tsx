@@ -97,6 +97,7 @@ export function BorrowTab() {
 
   /**
    * Fetch real borrowing capacity and position data from Vesu
+   * Requirements: AC-4.3, AC-4.4, AC-4.6, AC-4.7, TR-4.27
    */
   useEffect(() => {
     if (!isConnected || !address) return
@@ -128,6 +129,14 @@ export function BorrowTab() {
     }
 
     fetchVesuData()
+    
+    // Refresh data when network changes
+    const handleNetworkChange = () => {
+      fetchVesuData()
+    }
+    
+    window.addEventListener('paymejor_network_changed', handleNetworkChange)
+    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
   }, [isConnected, address, network, getUserPosition, getBorrowingCapacity, getPoolParameters])
 
   /**

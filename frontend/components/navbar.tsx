@@ -21,7 +21,7 @@ interface NavbarProps {
 
 export function Navbar({ onMenuClick }: NavbarProps) {
   const { theme, setTheme } = useTheme()
-  const { isConnected, address, network, connect, disconnect } = useWallet()
+  const { isConnected, address, network, walletName, isReconnecting, connect, disconnect } = useWallet()
   const { toast } = useToast()
   const [mounted, setMounted] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
@@ -44,7 +44,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
       await connect()
       toast({
         title: 'Wallet Connected',
-        description: 'Successfully connected to Starknet Sepolia',
+        description: walletName ? `Connected with ${walletName}` : 'Successfully connected to Starknet',
         duration: 3000,
       })
     } catch (error) {
@@ -55,18 +55,20 @@ export function Navbar({ onMenuClick }: NavbarProps) {
       let errorDescription = 'Please try again'
       
       if (error instanceof Error) {
-        if (error.message.includes('Sepolia')) {
-          errorMessage = 'Wrong Network'
-          errorDescription = 'Please switch to Starknet Sepolia testnet in your wallet'
+        if (error.message.includes('Unsupported network')) {
+          errorMessage = 'Unsupported Network'
+          errorDescription = 'Please switch to Starknet Sepolia or Mainnet in your wallet'
         } else if (error.message.includes('rejected') || error.message.includes('denied')) {
           errorMessage = 'Connection Rejected'
           errorDescription = 'You rejected the connection request'
         } else if (error.message.includes('No account')) {
           errorMessage = 'No Account Found'
           errorDescription = 'Please unlock your wallet and try again'
-        } else if (error.message.includes('Failed to connect')) {
-          errorMessage = 'Connection Failed'
-          errorDescription = 'Please install a Starknet wallet (e.g., Argent, Braavos, Xverse)'
+        } else if (error.message.includes('No wallet selected')) {
+          errorMessage = 'No Wallet Installed'
+          errorDescription = 'Please install a Starknet wallet (Argent, Braavos, or Xverse)'
+        } else {
+          errorDescription = error.message
         }
       }
       
@@ -106,8 +108,6 @@ export function Navbar({ onMenuClick }: NavbarProps) {
     }
     return 'Starknet Mainnet'
   }
-
-  const isCorrectNetwork = network === 'sepolia'
 
   if (!mounted) return null
 
@@ -152,7 +152,13 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="font-mono text-xs">{address}</p>
+                    <div className="space-y-1">
+                      <p className="font-mono text-xs">{address}</p>
+                      {walletName && (
+                        <p className="text-xs text-muted-foreground">Wallet: {walletName}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground">Network: {getNetworkDisplay()}</p>
+                    </div>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -170,10 +176,10 @@ export function Navbar({ onMenuClick }: NavbarProps) {
               variant="default"
               size="sm"
               onClick={handleConnect}
-              disabled={isConnecting}
+              disabled={isConnecting || isReconnecting}
               className="bg-primary hover:bg-primary/90 text-xs md:text-sm"
             >
-              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+              {isConnecting ? 'Connecting...' : isReconnecting ? 'Loading...' : 'Connect Wallet'}
             </Button>
           )}
         </div>

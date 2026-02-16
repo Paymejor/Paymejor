@@ -8,7 +8,7 @@ This implementation plan transforms the existing Next.js frontend into a product
 
 ## Tasks
 
-- [-] 1. Network Configuration & Environment Setup
+- [x] 1. Network Configuration & Environment Setup
   - Create network-specific configuration system for Sepolia and Mainnet
   - Add environment variables for both networks (RPC URLs, contract addresses)
   - Implement network selector component in navbar
@@ -16,8 +16,8 @@ This implementation plan transforms the existing Next.js frontend into a product
   - Update constants.ts to support dual network configuration
   - _Requirements: TR-4.1, TR-4.9, TR-4.10, TR-4.26, TR-4.27, AC-1.4_
 
-- [ ] 2. Wallet Integration Enhancement
-  - [ ] 2.1 Enhance wallet connection for multi-wallet support
+- [x] 2. Wallet Integration Enhancement
+  - [x] 2.1 Enhance wallet connection for multi-wallet support
     - Test and verify Xverse wallet compatibility
     - Add wallet detection and connection error handling
     - Implement wallet reconnection on page reload

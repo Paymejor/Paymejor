@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { AccountInterface, constants } from 'starknet'
 import { connect as connectStarknet, disconnect as disconnectStarknet } from '@starknet-io/get-starknet'
 import type { StarknetWindowObject } from '@starknet-io/get-starknet'
@@ -12,6 +12,8 @@ interface WalletContextType extends WalletState {
   connect: () => Promise<void>
   disconnect: () => void
   setNetwork: (network: SupportedNetwork) => void
+  walletName: string | null
+  isReconnecting: boolean
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
@@ -21,6 +23,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [address, setAddress] = useState<string | null>(null)
   const [account, setAccount] = useState<AccountInterface | null>(null)
   const [network, setNetworkState] = useState<SupportedNetwork>('sepolia')
+  const [walletName, setWalletName] = useState<string | null>(null)
+  const [isReconnecting, setIsReconnecting] = useState(true)
   const [balances, setBalances] = useState<TokenBalances>({
     wBTC: '0',
     USDC: '0',
@@ -28,109 +32,62 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     network: 'sepolia',
   })
 
-  // Handle wallet events and reconnection on mount
-  useEffect(() => {
-    const handleAccountsChanged = (accounts?: string[]) => {
-      if (!accounts || accounts.length === 0) {
-        disconnect()
+  /**
+   * Detect and validate wallet network
+   * Returns the detected network or throws error if invalid
+   */
+  const detectNetwork = useCallback(async (starknet: StarknetWindowObject): Promise<SupportedNetwork> => {
+    try {
+      const chainId = await starknet.provider.getChainId()
+      
+      // Map chain ID to network
+      if (chainId === constants.StarknetChainId.SN_SEPOLIA) {
+        return 'sepolia'
+      } else if (chainId === constants.StarknetChainId.SN_MAIN) {
+        return 'mainnet'
       }
-    }
-
-    const handleNetworkChanged = (chainId?: string) => {
-      if (chainId) {
-        const detectedNetwork = chainId === constants.StarknetChainId.SN_SEPOLIA 
-          ? 'sepolia' 
-          : 'mainnet'
-        
-        if (detectedNetwork !== 'sepolia') {
-          console.warn('Network changed to non-Sepolia network')
-          disconnect()
-        } else {
-          setNetworkState(detectedNetwork)
-        }
-      }
-    }
-
-    // Try to reconnect to last wallet on mount
-    const reconnectWallet = async () => {
-      try {
-        const starknet = await connectStarknet({ 
-          modalMode: 'neverAsk',
-        })
-        
-        if (starknet && starknet.isConnected) {
-          const walletAccount = starknet.account
-          const chainId = await starknet.provider.getChainId()
-          const detectedNetwork = chainId === constants.StarknetChainId.SN_SEPOLIA 
-            ? 'sepolia' 
-            : 'mainnet'
-
-          if (detectedNetwork === 'sepolia') {
-            setIsConnected(true)
-            setAddress(walletAccount.address)
-            setAccount(walletAccount)
-            setNetworkState(detectedNetwork)
-            console.log('Wallet reconnected:', walletAccount.address)
-          }
-        }
-      } catch (error) {
-        // Silent fail on reconnection attempt
-        console.debug('No wallet to reconnect')
-      }
-    }
-
-    reconnectWallet()
-
-    // Note: get-starknet v4 handles events internally
-    // We rely on the wallet's own event system
-    
-    return () => {
-      // Cleanup if needed
+      
+      // Unknown network
+      throw new Error(`Unsupported network. Chain ID: ${chainId}`)
+    } catch (error) {
+      console.error('Failed to detect network:', error)
+      throw new Error('Failed to detect wallet network')
     }
   }, [])
 
-  const connect = async () => {
+  /**
+   * Handle wallet connection with comprehensive error handling
+   */
+  const handleWalletConnection = useCallback(async (
+    starknet: StarknetWindowObject,
+    isReconnect: boolean = false
+  ): Promise<void> => {
     try {
-      // Connect using get-starknet (supports multiple wallets including Xverse)
-      const starknet = await connectStarknet({
-        modalMode: 'alwaysAsk',
-        modalTheme: 'dark',
-      })
-
-      if (!starknet) {
-        throw new Error('Failed to connect wallet')
-      }
-
-      // Enable the wallet connection if not already connected
+      // Ensure wallet is enabled
       if (!starknet.isConnected) {
         await starknet.enable({ starknetVersion: 'v5' })
       }
 
-      // Get the account
+      // Get account
       const walletAccount = starknet.account
-      
       if (!walletAccount) {
-        throw new Error('No account found')
+        throw new Error('No account found in wallet')
       }
 
-      // Detect network from chain ID
-      const chainId = await starknet.provider.getChainId()
-      const detectedNetwork = chainId === constants.StarknetChainId.SN_SEPOLIA 
-        ? 'sepolia' 
-        : 'mainnet'
+      // Detect network
+      const detectedNetwork = await detectNetwork(starknet)
 
-      // Verify we're on Sepolia testnet
-      if (detectedNetwork !== 'sepolia') {
-        throw new Error('Please switch to Starknet Sepolia testnet')
-      }
+      // Get wallet name/ID
+      const walletId = starknet.id || starknet.name || 'Unknown Wallet'
 
-      // Update state with real wallet data
+      // Update state
       setIsConnected(true)
       setAddress(walletAccount.address)
       setAccount(walletAccount)
       setNetworkState(detectedNetwork)
+      setWalletName(walletId)
       
-      // Initial balances will be fetched by other hooks
+      // Initialize balances
       setBalances({
         wBTC: '0',
         USDC: '0',
@@ -138,17 +95,153 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         network: detectedNetwork,
       })
 
-      console.log('Wallet connected:', walletAccount.address)
+      if (!isReconnect) {
+        console.log(`Wallet connected: ${walletId} on ${detectedNetwork}`)
+      } else {
+        console.log(`Wallet reconnected: ${walletId}`)
+      }
+    } catch (error) {
+      console.error('Wallet connection failed:', error)
+      throw error
+    }
+  }, [detectNetwork])
+
+  /**
+   * Handle wallet events (account/network changes)
+   */
+  const setupWalletListeners = useCallback((starknet: StarknetWindowObject) => {
+    // Handle account changes
+    const handleAccountsChanged = (accounts?: string[]) => {
+      if (!accounts || accounts.length === 0) {
+        console.log('Account disconnected')
+        disconnect()
+      } else {
+        console.log('Account changed:', accounts[0])
+        // Refresh connection with new account
+        handleWalletConnection(starknet, true).catch(err => {
+          console.error('Failed to handle account change:', err)
+          disconnect()
+        })
+      }
+    }
+
+    // Handle network changes
+    const handleNetworkChanged = async (chainId?: string) => {
+      if (!chainId) return
+      
+      try {
+        const detectedNetwork = await detectNetwork(starknet)
+        console.log('Network changed to:', detectedNetwork)
+        setNetworkState(detectedNetwork)
+        
+        // Update balances network reference
+        setBalances(prev => ({
+          ...prev,
+          network: detectedNetwork,
+        }))
+      } catch (error) {
+        console.error('Network change error:', error)
+        // Disconnect if network is unsupported
+        disconnect()
+      }
+    }
+
+    // Note: get-starknet v4 handles events internally through the wallet
+    // We set up listeners if the wallet exposes them
+    if (starknet.on) {
+      starknet.on('accountsChanged', handleAccountsChanged)
+      starknet.on('networkChanged', handleNetworkChanged)
+    }
+
+    return () => {
+      if (starknet.off) {
+        starknet.off('accountsChanged', handleAccountsChanged)
+        starknet.off('networkChanged', handleNetworkChanged)
+      }
+    }
+  }, [detectNetwork, handleWalletConnection])
+
+  /**
+   * Attempt to reconnect to last connected wallet on mount
+   */
+  useEffect(() => {
+    const reconnectWallet = async () => {
+      try {
+        setIsReconnecting(true)
+        
+        // Try to connect to last wallet without showing modal
+        const starknet = await connectStarknet({ 
+          modalMode: 'neverAsk',
+        })
+        
+        if (starknet && starknet.isConnected) {
+          await handleWalletConnection(starknet, true)
+          
+          // Set up event listeners
+          setupWalletListeners(starknet)
+        }
+      } catch (error) {
+        // Silent fail on reconnection - user can manually connect
+        console.debug('No wallet to reconnect:', error)
+      } finally {
+        setIsReconnecting(false)
+      }
+    }
+
+    reconnectWallet()
+  }, [handleWalletConnection, setupWalletListeners])
+
+  /**
+   * Connect wallet with modal
+   * Supports multiple wallets: Argent, Braavos, Xverse, etc.
+   */
+  const connect = async () => {
+    try {
+      // Show wallet selection modal
+      const starknet = await connectStarknet({
+        modalMode: 'alwaysAsk',
+        modalTheme: 'dark',
+      })
+
+      if (!starknet) {
+        throw new Error('No wallet selected. Please install a Starknet wallet (Argent, Braavos, or Xverse)')
+      }
+
+      // Handle connection
+      await handleWalletConnection(starknet, false)
+      
+      // Set up event listeners
+      setupWalletListeners(starknet)
+
     } catch (error) {
       console.error('Failed to connect wallet:', error)
-      // Reset state on error
+      
+      // Clean up state on error
       setIsConnected(false)
       setAddress(null)
       setAccount(null)
-      throw error
+      setWalletName(null)
+      
+      // Re-throw with user-friendly message
+      if (error instanceof Error) {
+        if (error.message.includes('No account')) {
+          throw new Error('No account found. Please unlock your wallet and try again')
+        } else if (error.message.includes('Unsupported network')) {
+          throw new Error('Unsupported network. Please switch to Starknet Sepolia or Mainnet')
+        } else if (error.message.includes('rejected') || error.message.includes('denied')) {
+          throw new Error('Connection rejected. Please approve the connection in your wallet')
+        } else if (error.message.includes('No wallet selected')) {
+          throw error
+        }
+      }
+      
+      throw new Error('Failed to connect wallet. Please try again')
     }
   }
 
+  /**
+   * Disconnect wallet and clear state
+   */
   const disconnect = () => {
     try {
       // Disconnect using get-starknet
@@ -158,6 +251,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(false)
       setAddress(null)
       setAccount(null)
+      setWalletName(null)
       setBalances({
         wBTC: '0',
         USDC: '0',
@@ -168,15 +262,21 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       console.log('Wallet disconnected')
     } catch (error) {
       console.error('Error disconnecting wallet:', error)
+      
       // Force clear state even on error
       setIsConnected(false)
       setAddress(null)
       setAccount(null)
+      setWalletName(null)
     }
   }
 
+  /**
+   * Update network selection
+   */
   const setNetwork = (newNetwork: SupportedNetwork) => {
     setNetworkState(newNetwork)
+    
     // Update balances network reference
     setBalances(prev => ({
       ...prev,
@@ -192,6 +292,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         account,
         network,
         balances,
+        walletName,
+        isReconnecting,
         connect,
         disconnect,
         setNetwork,

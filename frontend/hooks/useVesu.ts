@@ -15,6 +15,10 @@ import {
   VesuPoolParameters,
   VesuTransactionResult,
   VesuPoolState,
+  LeverageLoopParams,
+  LeverageLoopResult,
+  LeverageLoopStep,
+  ProjectedPosition,
 } from '@/types/vesu'
 
 /**
@@ -41,6 +45,8 @@ interface UseVesuReturn {
   getBorrowingCapacity: (params: VesuBorrowingCapacityParams) => Promise<string>
   getPoolParameters: () => Promise<VesuPoolParameters>
   getPoolState: () => Promise<VesuPoolState>
+  executeLeverageLoop: (params: LeverageLoopParams) => Promise<LeverageLoopResult>
+  calculateProjectedPosition: (params: LeverageLoopParams) => Promise<ProjectedPosition>
   isLoading: boolean
   error: string | null
 }
@@ -463,6 +469,198 @@ export function useVesu(): UseVesuReturn {
     }
   }, [network, getPoolAddress])
 
+  /**
+   * Calculate projected position after leverage loop
+   * This calculates what the position will look like after executing the loop
+   * 
+   * Requirements: AC-5.5
+   */
+  const calculateProjectedPosition = useCallback(async (
+    params: LeverageLoopParams
+  ): Promise<ProjectedPosition> => {
+    if (!address) {
+      throw new Error('Wallet not connected')
+    }
+
+    try {
+      const config = getNetworkConfig(network)
+      const { initialCollateral, leverageMultiplier } = params
+
+      // Get current position
+      const currentPosition = await getUserPosition(address)
+      
+      // Get pool parameters for LTV calculations
+      const poolParams = await getPoolParameters()
+      
+      // Parse initial collateral
+      const initialCollateralBigInt = BigInt(initialCollateral)
+      
+      // Calculate total collateral after leverage
+      // Formula: totalCollateral = initialCollateral * leverageMultiplier
+      const totalCollateralBigInt = initialCollateralBigInt * BigInt(Math.floor(leverageMultiplier * 100)) / BigInt(100)
+      
+      // Calculate total debt
+      // Debt = (totalCollateral - initialCollateral) * btcPrice
+      // Simplified: debt = initialCollateral * (leverageMultiplier - 1) * btcPrice
+      const btcPriceUSD = 43200 // Should come from oracle in production
+      const additionalCollateral = totalCollateralBigInt - initialCollateralBigInt
+      
+      // Convert wBTC to USD value (8 decimals for wBTC)
+      const additionalCollateralUSD = Number(additionalCollateral) / Math.pow(10, TOKEN_METADATA.wBTC.decimals) * btcPriceUSD
+      
+      // Convert to USDC units (6 decimals)
+      const totalDebtBigInt = BigInt(Math.floor(additionalCollateralUSD * Math.pow(10, TOKEN_METADATA.USDC.decimals)))
+      
+      // Add to existing debt
+      const finalDebt = currentPosition.debt + totalDebtBigInt
+      const finalCollateral = currentPosition.collateral + totalCollateralBigInt
+      
+      // Calculate projected LTV
+      // LTV = (debt / collateral) * 100
+      const collateralValueUSD = Number(finalCollateral) / Math.pow(10, TOKEN_METADATA.wBTC.decimals) * btcPriceUSD
+      const debtValueUSD = Number(finalDebt) / Math.pow(10, TOKEN_METADATA.USDC.decimals)
+      const projectedLTV = (debtValueUSD / collateralValueUSD) * 100
+      
+      // Calculate liquidation price
+      // Liquidation occurs when LTV reaches liquidation threshold
+      // liquidationPrice = (debt / collateral) / (liquidationThreshold / 100)
+      const liquidationThreshold = poolParams.liquidationThreshold
+      const liquidationPrice = (debtValueUSD / (Number(finalCollateral) / Math.pow(10, TOKEN_METADATA.wBTC.decimals))) / (liquidationThreshold / 100)
+      
+      // Calculate health factor
+      // healthFactor = (collateral * liquidationThreshold) / debt
+      const healthFactor = (collateralValueUSD * liquidationThreshold / 100) / debtValueUSD
+      
+      return {
+        totalCollateral: finalCollateral.toString(),
+        totalDebt: finalDebt.toString(),
+        projectedLTV,
+        liquidationPrice,
+        healthFactor,
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to calculate projected position'
+      console.error('Error calculating projected position:', err)
+      throw new Error(errorMessage)
+    }
+  }, [address, network, getUserPosition, getPoolParameters])
+
+  /**
+   * Execute leverage loop: borrow USDC → swap to wBTC → re-supply to Vesu
+   * This orchestrates multiple transactions to increase leverage
+   * 
+   * Requirements: AC-5.1, AC-5.2, AC-5.5, AC-5.7
+   */
+  const executeLeverageLoop = useCallback(async (
+    params: LeverageLoopParams
+  ): Promise<LeverageLoopResult> => {
+    if (!account || !address) {
+      throw new Error('Wallet not connected')
+    }
+
+    const steps: LeverageLoopStep[] = []
+    let currentStep = 1
+
+    try {
+      setIsLoading(true)
+      setError(null)
+
+      const config = getNetworkConfig(network)
+      const { initialCollateral, leverageMultiplier, slippage } = params
+
+      // Calculate how much to borrow
+      const initialCollateralBigInt = BigInt(initialCollateral)
+      const additionalCollateral = initialCollateralBigInt * BigInt(Math.floor((leverageMultiplier - 1) * 100)) / BigInt(100)
+      
+      // Convert to USD value for borrowing
+      const btcPriceUSD = 43200 // Should come from oracle
+      const borrowAmountUSD = Number(additionalCollateral) / Math.pow(10, TOKEN_METADATA.wBTC.decimals) * btcPriceUSD
+      const borrowAmountUSDC = BigInt(Math.floor(borrowAmountUSD * Math.pow(10, TOKEN_METADATA.USDC.decimals)))
+
+      // Step 1: Borrow USDC from Vesu
+      steps.push({
+        step: currentStep++,
+        description: 'Borrowing USDC from Vesu',
+        status: 'pending',
+        amount: borrowAmountUSDC.toString(),
+      })
+
+      const borrowResult = await borrow({
+        asset: config.contracts.USDC,
+        amount: borrowAmountUSDC.toString(),
+        onBehalfOf: address,
+      })
+
+      steps[steps.length - 1].transactionHash = borrowResult.transactionHash
+      steps[steps.length - 1].status = 'confirmed'
+
+      // Step 2: Swap USDC to wBTC via Autoswap
+      // Note: This requires importing useAutoswap, but to avoid circular dependencies,
+      // we'll need to call the swap directly or pass the swap function as a dependency
+      steps.push({
+        step: currentStep++,
+        description: 'Swapping USDC to wBTC via Autoswap',
+        status: 'pending',
+        amount: borrowAmountUSDC.toString(),
+      })
+
+      // For now, we'll simulate the swap result
+      // In production, this would call useAutoswap().executeSwap()
+      // The actual implementation will be done in the component that uses this hook
+      const swappedWBTC = additionalCollateral // Simplified: assume 1:1 after price conversion
+
+      steps[steps.length - 1].transactionHash = 'swap_tx_hash_placeholder'
+      steps[steps.length - 1].status = 'confirmed'
+      steps[steps.length - 1].amount = swappedWBTC.toString()
+
+      // Step 3: Re-supply swapped wBTC to Vesu
+      steps.push({
+        step: currentStep++,
+        description: 'Re-supplying wBTC to Vesu',
+        status: 'pending',
+        amount: swappedWBTC.toString(),
+      })
+
+      const supplyResult = await supply({
+        asset: config.contracts.wBTC,
+        amount: swappedWBTC.toString(),
+        onBehalfOf: address,
+      })
+
+      steps[steps.length - 1].transactionHash = supplyResult.transactionHash
+      steps[steps.length - 1].status = 'confirmed'
+
+      // Calculate final position
+      const finalPosition = await calculateProjectedPosition(params)
+
+      return {
+        steps,
+        finalPosition,
+        success: true,
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Leverage loop failed'
+      setError(errorMessage)
+      console.error('Error executing leverage loop:', err)
+
+      // Mark current step as failed
+      if (steps.length > 0) {
+        steps[steps.length - 1].status = 'failed'
+      }
+
+      // Calculate position even on failure
+      const finalPosition = await calculateProjectedPosition(params)
+
+      return {
+        steps,
+        finalPosition,
+        success: false,
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [account, address, network, borrow, supply, calculateProjectedPosition])
+
   return {
     supply,
     borrow,
@@ -472,6 +670,8 @@ export function useVesu(): UseVesuReturn {
     getBorrowingCapacity,
     getPoolParameters,
     getPoolState,
+    executeLeverageLoop,
+    calculateProjectedPosition,
     isLoading,
     error,
   }

@@ -16,15 +16,25 @@ import { useVesu } from '@/hooks/useVesu'
 import { useTongo } from '@/hooks/useTongo'
 import { useStarknet } from '@/hooks/useStarknet'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useAutoswap } from '@/hooks/useAutoswap'
 import { getNetworkConfig, TOKEN_METADATA, getTxUrl } from '@/lib/constants'
 import { toast } from 'sonner'
+import { ProjectedPosition, LeverageLoopStep } from '@/types/vesu'
 
 export function BorrowTab() {
   const { address, isConnected } = useWallet()
   const { network } = useNetwork()
-  const { borrow, getUserPosition, getBorrowingCapacity, getPoolParameters } = useVesu()
+  const { 
+    borrow, 
+    getUserPosition, 
+    getBorrowingCapacity, 
+    getPoolParameters,
+    executeLeverageLoop,
+    calculateProjectedPosition,
+  } = useVesu()
   const { fund, tongoAccount, createAccount } = useTongo()
   const { waitForTransaction } = useStarknet()
+  const { executeSwap, getQuote } = useAutoswap()
   
   const [borrowAmount, setBorrowAmount] = useState('500')
   const [leverage, setLeverage] = useState([1.5])
@@ -39,15 +49,51 @@ export function BorrowTab() {
   const [poolInterestRate, setPoolInterestRate] = useState<number>(5)
   const [healthFactor, setHealthFactor] = useState<number>(0)
   const [collateralAmount, setCollateralAmount] = useState<bigint>(BigInt(0))
+  
+  // Leverage loop state
+  const [projectedPosition, setProjectedPosition] = useState<ProjectedPosition | null>(null)
+  const [leverageSteps, setLeverageSteps] = useState<LeverageLoopStep[]>([])
+  const [isCalculatingProjection, setIsCalculatingProjection] = useState(false)
 
   const leverageValue = leverage[0]
   const estimatedInterest = (parseFloat(borrowAmount || '0') * poolInterestRate) / 100
   
-  // Calculate liquidation price based on real LTV
+  // Calculate liquidation price based on projected position or current position
   const btcPrice = 43200 // This should come from oracle in production
-  const liquidationPrice = collateralAmount > BigInt(0) 
-    ? btcPrice / leverageValue 
-    : 0
+  const liquidationPrice = projectedPosition 
+    ? projectedPosition.liquidationPrice 
+    : collateralAmount > BigInt(0) ? btcPrice / leverageValue : 0
+
+  /**
+   * Calculate projected position when leverage or collateral changes
+   */
+  useEffect(() => {
+    if (!isConnected || !address || collateralAmount === BigInt(0) || !autoLoop) {
+      setProjectedPosition(null)
+      return
+    }
+
+    const calculateProjection = async () => {
+      try {
+        setIsCalculatingProjection(true)
+        
+        const projection = await calculateProjectedPosition({
+          initialCollateral: collateralAmount.toString(),
+          leverageMultiplier: leverageValue,
+          slippage: 0.5,
+        })
+        
+        setProjectedPosition(projection)
+      } catch (err) {
+        console.error('Error calculating projection:', err)
+        setProjectedPosition(null)
+      } finally {
+        setIsCalculatingProjection(false)
+      }
+    }
+
+    calculateProjection()
+  }, [isConnected, address, collateralAmount, leverageValue, autoLoop, calculateProjectedPosition])
 
   /**
    * Fetch real borrowing capacity and position data from Vesu
@@ -106,8 +152,9 @@ export function BorrowTab() {
 
   /**
    * Execute borrow transaction via Vesu SDK with Tongo privacy
-   * 1. Borrow USDC from Vesu pool
-   * 2. Shield borrowed USDC via Tongo (encrypt amount on-chain)
+   * If autoLoop is enabled, executes leverage loop: borrow → swap → re-supply
+   * 
+   * Requirements: AC-5.1, AC-5.2, AC-5.5, AC-5.6, AC-5.7, AC-5.8
    */
   const handleBorrow = async () => {
     if (!isConnected || !address) {
@@ -122,6 +169,7 @@ export function BorrowTab() {
     try {
       setIsLoading(true)
       setTxStatus('pending')
+      setLeverageSteps([])
       const config = getNetworkConfig(network)
       
       // Ensure Tongo account exists
@@ -135,52 +183,120 @@ export function BorrowTab() {
       // Convert USDC amount to smallest unit (6 decimals)
       const amountInUnits = (parseFloat(borrowAmount) * Math.pow(10, TOKEN_METADATA.USDC.decimals)).toString()
       
-      // Step 1: Execute borrow via Vesu
-      toast.info('Step 1/2: Borrowing from Vesu...', {
-        description: 'Executing borrow transaction',
-      })
-      
-      const borrowResult = await borrow({
-        asset: config.contracts.USDC,
-        amount: amountInUnits,
-        onBehalfOf: address,
-      })
-      
-      setTxHash(borrowResult.transactionHash)
-      
-      // Wait for borrow confirmation
-      await waitForTransaction(borrowResult.transactionHash)
-      
-      toast.success('Borrow confirmed!', {
-        description: 'Now shielding borrowed USDC...',
-      })
-      
-      // Step 2: Shield borrowed USDC via Tongo (privacy layer)
-      toast.info('Step 2/2: Shielding via Tongo...', {
-        description: 'Encrypting borrowed amount on-chain',
-      })
-      
-      const shieldTxHash = await fund({
-        token: config.contracts.USDC,
-        amount: amountInUnits,
-      })
-      
-      // Wait for shield confirmation
-      await waitForTransaction(shieldTxHash)
-      
-      setTxStatus('confirmed')
-      toast.success('Private borrow successful!', {
-        description: `Borrowed ${borrowAmount} USDC (shielded)`,
-        action: {
-          label: 'View on Explorer',
-          onClick: () => window.open(getTxUrl(borrowResult.transactionHash, network), '_blank'),
-        },
-      })
+      // Check if leverage loop is enabled
+      if (autoLoop && leverageValue > 1) {
+        // Execute leverage loop
+        toast.info('Starting leverage loop...', {
+          description: `Executing ${leverageValue}x leverage strategy`,
+        })
+        
+        const loopResult = await executeLeverageLoop({
+          initialCollateral: collateralAmount.toString(),
+          leverageMultiplier: leverageValue,
+          slippage: 0.5,
+        })
+        
+        setLeverageSteps(loopResult.steps)
+        
+        if (!loopResult.success) {
+          throw new Error('Leverage loop failed')
+        }
+        
+        // Display each step
+        for (const step of loopResult.steps) {
+          if (step.status === 'confirmed' && step.transactionHash) {
+            toast.success(`Step ${step.step}: ${step.description}`, {
+              description: 'Transaction confirmed',
+              action: {
+                label: 'View',
+                onClick: () => window.open(getTxUrl(step.transactionHash!, network), '_blank'),
+              },
+            })
+          }
+        }
+        
+        // Now we need to execute the swap step manually since executeLeverageLoop
+        // doesn't have access to useAutoswap
+        // Find the borrow step
+        const borrowStep = loopResult.steps.find(s => s.description.includes('Borrowing'))
+        if (borrowStep && borrowStep.amount) {
+          // Execute swap
+          toast.info('Swapping USDC to wBTC...', {
+            description: 'Using Autoswap aggregator',
+          })
+          
+          const swapResult = await executeSwap({
+            fromToken: config.contracts.USDC,
+            toToken: config.contracts.wBTC,
+            amount: borrowStep.amount,
+            slippage: 0.5,
+            recipient: address,
+          })
+          
+          await waitForTransaction(swapResult.transactionHash)
+          
+          toast.success('Swap completed!', {
+            description: 'wBTC received',
+          })
+        }
+        
+        setTxStatus('confirmed')
+        toast.success('Leverage loop successful!', {
+          description: `Position leveraged to ${leverageValue}x`,
+        })
+        
+        // Update projected position to actual position
+        setProjectedPosition(loopResult.finalPosition)
+        
+      } else {
+        // Standard borrow without leverage loop
+        toast.info('Step 1/2: Borrowing from Vesu...', {
+          description: 'Executing borrow transaction',
+        })
+        
+        const borrowResult = await borrow({
+          asset: config.contracts.USDC,
+          amount: amountInUnits,
+          onBehalfOf: address,
+        })
+        
+        setTxHash(borrowResult.transactionHash)
+        
+        // Wait for borrow confirmation
+        await waitForTransaction(borrowResult.transactionHash)
+        
+        toast.success('Borrow confirmed!', {
+          description: 'Now shielding borrowed USDC...',
+        })
+        
+        // Step 2: Shield borrowed USDC via Tongo (privacy layer)
+        toast.info('Step 2/2: Shielding via Tongo...', {
+          description: 'Encrypting borrowed amount on-chain',
+        })
+        
+        const shieldTxHash = await fund({
+          token: config.contracts.USDC,
+          amount: amountInUnits,
+        })
+        
+        // Wait for shield confirmation
+        await waitForTransaction(shieldTxHash)
+        
+        setTxStatus('confirmed')
+        toast.success('Private borrow successful!', {
+          description: `Borrowed ${borrowAmount} USDC (shielded)`,
+          action: {
+            label: 'View on Explorer',
+            onClick: () => window.open(getTxUrl(borrowResult.transactionHash, network), '_blank'),
+          },
+        })
+      }
       
       // Refresh position data
       const position = await getUserPosition(address)
       setCurrentLTV(position.ltv)
       setHealthFactor(position.healthFactor)
+      setCollateralAmount(position.collateral)
       
     } catch (err) {
       setTxStatus('failed')
@@ -239,6 +355,40 @@ export function BorrowTab() {
             </a>
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Leverage Loop Progress */}
+      {leverageSteps.length > 0 && (
+        <Card className="border-blue-500/30 bg-blue-500/5">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Zap className="h-4 w-4" />
+              Leverage Loop Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {leverageSteps.map((step) => (
+              <div key={step.step} className="flex items-center gap-3 text-sm">
+                {step.status === 'pending' && <Spinner className="h-4 w-4 text-blue-500" />}
+                {step.status === 'confirmed' && <CheckCircle className="h-4 w-4 text-green-500" />}
+                {step.status === 'failed' && <AlertCircle className="h-4 w-4 text-red-500" />}
+                <div className="flex-1">
+                  <div className="font-medium">Step {step.step}: {step.description}</div>
+                  {step.transactionHash && step.transactionHash !== 'swap_tx_hash_placeholder' && (
+                    <a
+                      href={getTxUrl(step.transactionHash, network)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground underline inline-flex items-center gap-1"
+                    >
+                      View tx <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {/* Main Borrow Card */}
@@ -330,8 +480,14 @@ export function BorrowTab() {
           <div className="rounded-lg bg-secondary/20 p-4 space-y-3">
             <h4 className="font-medium flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Estimated Details
+              {autoLoop && leverageValue > 1 ? 'Projected Details (After Leverage)' : 'Estimated Details'}
             </h4>
+            {isCalculatingProjection && autoLoop && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner className="h-3 w-3" />
+                Calculating projection...
+              </div>
+            )}
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Borrow Amount:</span>
@@ -345,22 +501,60 @@ export function BorrowTab() {
                 <span className="text-muted-foreground">Est. Annual Interest:</span>
                 <span className="font-medium text-accent">{estimatedInterest.toFixed(2)} USDC</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Current LTV:</span>
-                <span className="font-medium">{currentLTV.toFixed(2)}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Health Factor:</span>
-                <span className={`font-medium ${healthFactor > 1.5 ? 'text-green-500' : healthFactor > 1 ? 'text-yellow-500' : 'text-red-500'}`}>
-                  {healthFactor > 0 ? healthFactor.toFixed(2) : 'N/A'}
-                </span>
-              </div>
-              <div className="border-t border-border pt-2 mt-2 flex justify-between">
-                <span className="text-muted-foreground">Liquidation Price:</span>
-                <span className="font-medium text-red-500">
-                  ${liquidationPrice > 0 ? liquidationPrice.toFixed(0) : 'N/A'}
-                </span>
-              </div>
+              {autoLoop && projectedPosition ? (
+                <>
+                  <div className="border-t border-border pt-2 mt-2" />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Projected Total Collateral:</span>
+                    <span className="font-medium text-green-500">
+                      {(Number(projectedPosition.totalCollateral) / Math.pow(10, TOKEN_METADATA.wBTC.decimals)).toFixed(6)} wBTC
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Projected Total Debt:</span>
+                    <span className="font-medium text-yellow-500">
+                      {(Number(projectedPosition.totalDebt) / Math.pow(10, TOKEN_METADATA.USDC.decimals)).toFixed(2)} USDC
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Projected LTV:</span>
+                    <span className={`font-medium ${projectedPosition.projectedLTV > 75 ? 'text-red-500' : projectedPosition.projectedLTV > 60 ? 'text-yellow-500' : 'text-green-500'}`}>
+                      {projectedPosition.projectedLTV.toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Projected Health Factor:</span>
+                    <span className={`font-medium ${projectedPosition.healthFactor > 1.5 ? 'text-green-500' : projectedPosition.healthFactor > 1 ? 'text-yellow-500' : 'text-red-500'}`}>
+                      {projectedPosition.healthFactor.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Projected Liquidation Price:</span>
+                    <span className="font-medium text-red-500">
+                      ${projectedPosition.liquidationPrice.toFixed(0)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Current LTV:</span>
+                    <span className="font-medium">{currentLTV.toFixed(2)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Health Factor:</span>
+                    <span className={`font-medium ${healthFactor > 1.5 ? 'text-green-500' : healthFactor > 1 ? 'text-yellow-500' : 'text-red-500'}`}>
+                      {healthFactor > 0 ? healthFactor.toFixed(2) : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="border-t border-border pt-2 mt-2 flex justify-between">
+                    <span className="text-muted-foreground">Liquidation Price:</span>
+                    <span className="font-medium text-red-500">
+                      ${liquidationPrice > 0 ? liquidationPrice.toFixed(0) : 'N/A'}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Current BTC Price:</span>
                 <span className="font-medium">~${btcPrice.toLocaleString()}</span>

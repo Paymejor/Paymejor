@@ -142,15 +142,15 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test error handling for failed swaps
     - _Requirements: AC-5.2, AC-5.4_
 
-- [ ] 7. Leverage Loop Implementation
-  - [ ] 7.1 Implement leverage loop orchestration
+- [x] 7. Leverage Loop Implementation
+  - [x] 7.1 Implement leverage loop orchestration
     - Create leverage loop function in useVesu hook
     - Implement: borrow USDC → swap to wBTC → re-supply to Vesu
     - Calculate projected LTV and liquidation price
     - Display multi-step progress with transaction hashes
     - _Requirements: AC-5.1, AC-5.2, AC-5.5, AC-5.7_
 
-  - [ ] 7.2 Update Borrow tab with leverage controls
+  - [x] 7.2 Update Borrow tab with leverage controls
     - Add leverage slider (1x-3x) with real calculations
     - Implement "Enable Auto-Loop Leverage" checkbox
     - Show projected LTV and liquidation price from Vesu

@@ -100,3 +100,43 @@ export interface VesuPoolState {
   utilizationRate: number;
   interestRate: number;
 }
+
+/**
+ * Leverage loop parameters
+ */
+export interface LeverageLoopParams {
+  initialCollateral: string;  // Initial wBTC collateral amount
+  leverageMultiplier: number; // Leverage multiplier (1x-3x)
+  slippage: number;           // Slippage tolerance for swaps (e.g., 0.5 for 0.5%)
+}
+
+/**
+ * Leverage loop step status
+ */
+export interface LeverageLoopStep {
+  step: number;
+  description: string;
+  transactionHash?: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  amount?: string;
+}
+
+/**
+ * Projected position after leverage loop
+ */
+export interface ProjectedPosition {
+  totalCollateral: string;    // Total wBTC after loop
+  totalDebt: string;          // Total USDC debt after loop
+  projectedLTV: number;       // Projected LTV percentage
+  liquidationPrice: number;   // BTC price at which liquidation occurs
+  healthFactor: number;       // Projected health factor
+}
+
+/**
+ * Leverage loop result
+ */
+export interface LeverageLoopResult {
+  steps: LeverageLoopStep[];
+  finalPosition: ProjectedPosition;
+  success: boolean;
+}

@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { RpcProvider } from 'starknet'
 import { useWallet } from '@/lib/wallet-context'
 import { TransactionState } from '@/types/starknet'
-import { getNetworkConfig, PROTOCOL_PARAMS, getTxUrl } from '@/lib/constants'
+import { PROTOCOL_PARAMS, getTxUrl } from '@/lib/constants'
 import { useNetwork } from './useNetwork'
 
 /**
@@ -44,7 +43,7 @@ export function useStarknet(): UseStarknetReturn {
 
   /**
    * Get token balance for an account
-   * Calls the ERC20 balanceOf function
+   * Calls the ERC20 balanceOf function via proxy to avoid CORS
    */
   const getBalance = useCallback(async (
     tokenAddress: string,
@@ -53,21 +52,40 @@ export function useStarknet(): UseStarknetReturn {
     try {
       setError(null)
       
-      // Get network-specific RPC URL
-      const config = getNetworkConfig(network)
-      
-      // Create RPC provider
-      const provider = new RpcProvider({ nodeUrl: config.rpcUrl })
-      
-      // Call balanceOf using provider.callContract
-      const result = await provider.callContract({
-        contractAddress: tokenAddress,
-        entrypoint: 'balanceOf',
-        calldata: [accountAddress],
+      // Use proxy API route to avoid CORS issues
+      const response = await fetch(`/api/rpc?network=${network}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          method: 'starknet_call',
+          params: {
+            request: {
+              contract_address: tokenAddress,
+              entry_point_selector: '0x2e4263afad30923c891518314c3c95dbe830a16874e8abc5777a9a20b54c76e', // balanceOf selector
+              calldata: [accountAddress],
+            },
+            block_id: 'latest',
+          },
+          id: 1,
+        }),
       })
       
+      if (!response.ok) {
+        throw new Error(`RPC request failed: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error.message || 'RPC error')
+      }
+      
       // Result is an array of felts representing Uint256 (low, high)
-      const low = result[0]
+      const result = data.result || []
+      const low = result[0] || '0'
       const high = result[1] || '0'
       
       // Convert to BigInt and then string
@@ -133,7 +151,7 @@ export function useStarknet(): UseStarknetReturn {
 
   /**
    * Wait for transaction confirmation
-   * Polls transaction status until confirmed or failed
+   * Polls transaction status until confirmed or failed via proxy
    */
   const waitForTransaction = useCallback(async (
     txHash: string
@@ -141,66 +159,88 @@ export function useStarknet(): UseStarknetReturn {
     try {
       setError(null)
       
-      // Get network-specific RPC URL
-      const config = getNetworkConfig(network)
-      
-      // Create RPC provider
-      const provider = new RpcProvider({ nodeUrl: config.rpcUrl })
-      
       let attempts = 0
       const maxAttempts = PROTOCOL_PARAMS.maxPollingAttempts
       const interval = PROTOCOL_PARAMS.txPollingInterval
       
       while (attempts < maxAttempts) {
         try {
-          // Get transaction receipt
-          const receipt = await provider.getTransactionReceipt(txHash)
+          // Get transaction receipt via proxy
+          const response = await fetch(`/api/rpc?network=${network}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'starknet_getTransactionReceipt',
+              params: {
+                transaction_hash: txHash,
+              },
+              id: 1,
+            }),
+          })
           
-          // Check status - handle different receipt types
-          const status = (receipt as any).execution_status || (receipt as any).status
+          if (!response.ok) {
+            throw new Error(`RPC request failed: ${response.statusText}`)
+          }
           
-          if (status === 'SUCCEEDED' || status === 'ACCEPTED_ON_L2' || status === 'ACCEPTED_ON_L1') {
-            // Find transaction type from existing state
-            const existingTx = transactions.find(tx => tx.hash === txHash)
-            const txType = existingTx?.type || 'deposit'
-            
-            // Update transaction state
-            setTransactions(prev =>
-              prev.map(tx =>
-                tx.hash === txHash
-                  ? { ...tx, status: 'confirmed' }
-                  : tx
-              )
-            )
-            
-            // Emit cache invalidation events
-            window.dispatchEvent(new CustomEvent('paymejor_transaction_confirmed', {
-              detail: { txHash, type: txType }
-            }))
-            
-            // Emit specific event based on transaction type
-            window.dispatchEvent(new CustomEvent(`paymejor_${txType}_confirmed`, {
-              detail: { txHash }
-            }))
-            
-            return {
-              hash: txHash,
-              type: txType,
-              status: 'confirmed',
-              timestamp: Date.now(),
-              explorerUrl: getTxUrl(txHash, network),
+          const data = await response.json()
+          
+          if (data.error) {
+            // Transaction not found yet, continue polling
+            if (attempts === maxAttempts - 1) {
+              throw new Error('Transaction confirmation timeout')
             }
-          } else if (status === 'REVERTED' || status === 'REJECTED') {
-            // Transaction failed
-            setTransactions(prev =>
-              prev.map(tx =>
-                tx.hash === txHash
-                  ? { ...tx, status: 'failed' }
-                  : tx
-              )
-            )
+          } else {
+            const receipt = data.result
             
-            throw new Error('Transaction reverted')
+            // Check status - handle different receipt types
+            const status = receipt.execution_status || receipt.status
+            
+            if (status === 'SUCCEEDED' || status === 'ACCEPTED_ON_L2' || status === 'ACCEPTED_ON_L1') {
+              // Find transaction type from existing state
+              const existingTx = transactions.find(tx => tx.hash === txHash)
+              const txType = existingTx?.type || 'deposit'
+              
+              // Update transaction state
+              setTransactions(prev =>
+                prev.map(tx =>
+                  tx.hash === txHash
+                    ? { ...tx, status: 'confirmed' }
+                    : tx
+                )
+              )
+              
+              // Emit cache invalidation events
+              window.dispatchEvent(new CustomEvent('paymejor_transaction_confirmed', {
+                detail: { txHash, type: txType }
+              }))
+              
+              // Emit specific event based on transaction type
+              window.dispatchEvent(new CustomEvent(`paymejor_${txType}_confirmed`, {
+                detail: { txHash }
+              }))
+              
+              return {
+                hash: txHash,
+                type: txType,
+                status: 'confirmed',
+                timestamp: Date.now(),
+                explorerUrl: getTxUrl(txHash, network),
+              }
+            } else if (status === 'REVERTED' || status === 'REJECTED') {
+              // Transaction failed
+              setTransactions(prev =>
+                prev.map(tx =>
+                  tx.hash === txHash
+                    ? { ...tx, status: 'failed' }
+                    : tx
+                )
+              )
+              
+              throw new Error('Transaction reverted')
+            }
           }
         } catch (err) {
           // Transaction not found yet, continue polling
@@ -221,7 +261,7 @@ export function useStarknet(): UseStarknetReturn {
       console.error('Error waiting for transaction:', err)
       throw new Error(errorMessage)
     }
-  }, [network])
+  }, [network, transactions])
 
   return {
     getBalance,

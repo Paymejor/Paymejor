@@ -169,15 +169,15 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test transaction state management
     - _Requirements: AC-5.1, AC-5.2, AC-5.5, AC-5.7_
 
-- [ ] 8. Position Management & Decryption
-  - [ ] 8.1 Implement real position fetching from Vesu
+- [x] 8. Position Management & Decryption
+  - [x] 8.1 Implement real position fetching from Vesu
     - Query Vesu pool for user's supplied collateral
     - Query Vesu pool for user's borrowed amounts
     - Fetch LTV ratio and health factor from Vesu
     - Calculate liquidation threshold
     - _Requirements: AC-6.1, AC-6.2, AC-6.6, AC-6.7_
 
-  - [ ] 8.2 Integrate Tongo decryption in Positions tab
+  - [x] 8.2 Integrate Tongo decryption in Positions tab
     - Display encrypted amounts by default (****)
     - Implement "Reveal Position" button with Tongo decryption
     - Show decrypted collateral and debt balances
@@ -185,7 +185,7 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Update position data after transactions
     - _Requirements: AC-6.3, AC-6.4, AC-6.5, AC-6.8_
 
-  - [ ] 8.3 Add network-aware position display
+  - [x] 8.3 Add network-aware position display
     - Filter positions by selected network
     - Display correct explorer links per network
     - Handle network switching gracefully

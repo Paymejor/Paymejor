@@ -5,6 +5,7 @@ import { RpcProvider } from 'starknet'
 import { useWallet } from '@/lib/wallet-context'
 import { useNetwork } from './useNetwork'
 import { getNetworkConfig, TOKEN_METADATA } from '@/lib/constants'
+import { SecurityValidation } from '@/lib/security-validation'
 import {
   VesuPosition,
   VesuSupplyParams,
@@ -86,6 +87,30 @@ export function useVesu(): UseVesuReturn {
       const poolAddress = getPoolAddress()
       const { asset, amount, onBehalfOf } = params
 
+      // Security validation: Verify contract address
+      const contractValidation = SecurityValidation.verifyContractAddress(
+        poolAddress,
+        'vesuPool',
+        network
+      )
+      if (!contractValidation.valid) {
+        throw new Error(contractValidation.error)
+      }
+
+      // Security validation: Validate transaction
+      const token = asset === getNetworkConfig(network).contracts.wBTC ? 'wBTC' : 'USDC'
+      const txValidation = SecurityValidation.validateTransaction({
+        type: 'supply',
+        userAddress: address,
+        amount,
+        token,
+        network,
+        contractAddress: poolAddress,
+      })
+      if (!txValidation.valid) {
+        throw new Error(txValidation.error)
+      }
+
       // Convert amount to Uint256 (low, high)
       const amountBigInt = BigInt(amount)
       const low = (amountBigInt & BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF')).toString()
@@ -134,6 +159,30 @@ export function useVesu(): UseVesuReturn {
 
       const poolAddress = getPoolAddress()
       const { asset, amount, onBehalfOf } = params
+
+      // Security validation: Verify contract address
+      const contractValidation = SecurityValidation.verifyContractAddress(
+        poolAddress,
+        'vesuPool',
+        network
+      )
+      if (!contractValidation.valid) {
+        throw new Error(contractValidation.error)
+      }
+
+      // Security validation: Validate transaction
+      const token = asset === getNetworkConfig(network).contracts.USDC ? 'USDC' : 'wBTC'
+      const txValidation = SecurityValidation.validateTransaction({
+        type: 'borrow',
+        userAddress: address,
+        amount,
+        token,
+        network,
+        contractAddress: poolAddress,
+      })
+      if (!txValidation.valid) {
+        throw new Error(txValidation.error)
+      }
 
       // Convert amount to Uint256 (low, high)
       const amountBigInt = BigInt(amount)

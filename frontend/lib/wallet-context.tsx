@@ -7,6 +7,12 @@ import type { StarknetWindowObject } from '@starknet-io/get-starknet'
 import { WalletState, TokenBalances } from '@/types/starknet'
 import { SupportedNetwork } from './constants'
 
+// Extended type to handle wallet properties that may not be in the base type
+interface ExtendedStarknetWindowObject extends StarknetWindowObject {
+  account?: AccountInterface
+  selectedAddress?: string
+}
+
 interface WalletContextType extends WalletState {
   balances: TokenBalances
   connect: () => Promise<void>
@@ -36,9 +42,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
    * Detect and validate wallet network
    * Returns the detected network or throws error if invalid
    */
-  const detectNetwork = useCallback(async (starknet: StarknetWindowObject): Promise<SupportedNetwork> => {
+  const detectNetwork = useCallback(async (starknet: ExtendedStarknetWindowObject): Promise<SupportedNetwork> => {
     try {
-      const chainId = await starknet.provider.getChainId()
+      // In get-starknet v4, we need to get the provider from the account
+      const account = starknet.account
+      if (!account) {
+        throw new Error('No account available')
+      }
+      
+      const chainId = await account.getChainId()
       
       // Map chain ID to network
       if (chainId === constants.StarknetChainId.SN_SEPOLIA) {
@@ -59,16 +71,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
    * Handle wallet connection with comprehensive error handling
    */
   const handleWalletConnection = useCallback(async (
-    starknet: StarknetWindowObject,
+    starknet: ExtendedStarknetWindowObject,
     isReconnect: boolean = false
   ): Promise<void> => {
     try {
-      // Ensure wallet is enabled
-      if (!starknet.isConnected) {
-        await starknet.enable({ starknetVersion: 'v5' })
-      }
-
-      // Get account
+      // Get account - in v4, if account exists, wallet is connected
       const walletAccount = starknet.account
       if (!walletAccount) {
         throw new Error('No account found in wallet')
@@ -109,7 +116,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   /**
    * Handle wallet events (account/network changes)
    */
-  const setupWalletListeners = useCallback((starknet: StarknetWindowObject) => {
+  const setupWalletListeners = useCallback((starknet: ExtendedStarknetWindowObject) => {
     // Handle account changes
     const handleAccountsChanged = (accounts?: string[]) => {
       if (!accounts || accounts.length === 0) {
@@ -174,11 +181,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           modalMode: 'neverAsk',
         })
         
-        if (starknet && starknet.isConnected) {
-          await handleWalletConnection(starknet, true)
+        // Check if wallet has an account (indicates it's connected)
+        if (starknet && (starknet as ExtendedStarknetWindowObject).account) {
+          await handleWalletConnection(starknet as ExtendedStarknetWindowObject, true)
           
           // Set up event listeners
-          setupWalletListeners(starknet)
+          setupWalletListeners(starknet as ExtendedStarknetWindowObject)
         }
       } catch (error) {
         // Silent fail on reconnection - user can manually connect
@@ -208,10 +216,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Handle connection
-      await handleWalletConnection(starknet, false)
+      await handleWalletConnection(starknet as ExtendedStarknetWindowObject, false)
       
       // Set up event listeners
-      setupWalletListeners(starknet)
+      setupWalletListeners(starknet as ExtendedStarknetWindowObject)
 
     } catch (error) {
       console.error('Failed to connect wallet:', error)

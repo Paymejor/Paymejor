@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useWallet } from '@/lib/wallet-context'
 import { useNetwork } from '@/hooks/useNetwork'
+import { SecurityValidation } from '@/lib/security-validation'
 import {
   AtomiqBridgeParams,
   AtomiqBridgeTransaction,
@@ -94,6 +95,33 @@ export function useAtomiq(): UseAtomiqReturn {
     try {
       setIsLoading(true)
       setError(null)
+
+      // Security validation: Validate destination address
+      const addressValidation = SecurityValidation.validateAddress(address)
+      if (!addressValidation.valid) {
+        throw new Error(`Invalid destination address: ${addressValidation.error}`)
+      }
+
+      // Security validation: Validate amount
+      const amountValidation = SecurityValidation.validateAmount({
+        amount: params.amount,
+        token: 'wBTC',
+      })
+      if (!amountValidation.valid) {
+        throw new Error(amountValidation.error)
+      }
+
+      // Security validation: Check bridge rate limit
+      const rateLimitCheck = SecurityValidation.checkBridgeRateLimit(address)
+      if (!rateLimitCheck.allowed) {
+        throw new Error(rateLimitCheck.error)
+      }
+
+      // Security validation: Validate network
+      const networkValidation = SecurityValidation.validateNetwork(network)
+      if (!networkValidation.valid) {
+        throw new Error(networkValidation.error)
+      }
 
       // Note: Full Atomiq SDK integration requires:
       // 1. SwapperFactory initialization with Starknet chain

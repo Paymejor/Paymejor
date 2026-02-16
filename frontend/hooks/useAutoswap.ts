@@ -6,6 +6,7 @@ import { AutoSwappr } from 'autoswap-sdk'
 import { useWallet } from '@/lib/wallet-context'
 import { useNetwork } from './useNetwork'
 import { getNetworkConfig, TOKEN_METADATA } from '@/lib/constants'
+import { SecurityValidation } from '@/lib/security-validation'
 import {
   AutoswapConfig,
   SwapQuoteParams,
@@ -178,6 +179,40 @@ export function useAutoswap(): UseAutoswapReturn {
 
       const { fromToken, toToken, amount, slippage, recipient } = params
 
+      // Security validation: Validate addresses
+      const fromTokenValidation = SecurityValidation.validateAddress(fromToken)
+      if (!fromTokenValidation.valid) {
+        throw new Error(`Invalid fromToken address: ${fromTokenValidation.error}`)
+      }
+
+      const toTokenValidation = SecurityValidation.validateAddress(toToken)
+      if (!toTokenValidation.valid) {
+        throw new Error(`Invalid toToken address: ${toTokenValidation.error}`)
+      }
+
+      // Security validation: Validate amount
+      const networkConfig = getNetworkConfig(network)
+      const token = fromToken === networkConfig.contracts.wBTC ? 'wBTC' : 'USDC'
+      const amountValidation = SecurityValidation.validateAmount({
+        amount,
+        token,
+      })
+      if (!amountValidation.valid) {
+        throw new Error(amountValidation.error)
+      }
+
+      // Security validation: Validate slippage
+      const slippageValidation = SecurityValidation.validateSlippage(slippage)
+      if (!slippageValidation.valid) {
+        throw new Error(slippageValidation.error)
+      }
+
+      // Security validation: Check rate limit
+      const rateLimitCheck = SecurityValidation.checkTransactionRateLimit(address)
+      if (!rateLimitCheck.allowed) {
+        throw new Error(rateLimitCheck.error)
+      }
+
       // Get quote first to determine expected output
       const quote = await getQuote({ fromToken, toToken, amount })
 
@@ -191,11 +226,11 @@ export function useAutoswap(): UseAutoswapReturn {
       // because it requires a private key. Instead, we'll call the contract
       // through the connected wallet account.
       
-      const networkConfig = getNetworkConfig(network)
+      const config = getNetworkConfig(network)
       
       // Format amount for contract call
       // AutoSwappr expects amount as a string (e.g., "1" for 1 token)
-      const fromDecimals = fromToken === networkConfig.contracts.wBTC 
+      const fromDecimals = fromToken === config.contracts.wBTC 
         ? TOKEN_METADATA.wBTC.decimals 
         : TOKEN_METADATA.USDC.decimals
       

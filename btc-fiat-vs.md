@@ -1,4 +1,4 @@
-Yes, **MavaPay works well for both on-ramp and off-ramp** in the context of your NaijaShield Vault app, particularly for **Bitcoin (BTC) ↔ NGN** flows in Nigeria. It's bidirectional and NG-focused, making it a solid fit for completing the liquidity loop (e.g., borrow USDT/USDC → swap to BTC → off-ramp to NGN bank, or reverse for users funding positions).
+Yes, **MavaPay works well for both on-ramp and off-ramp** in the context of your Paymejor app, particularly for **Bitcoin (BTC) ↔ NGN** flows in Nigeria. It's bidirectional and NG-focused, making it a solid fit for completing the liquidity loop (e.g., borrow USDT/USDC → swap to BTC → off-ramp to NGN bank, or reverse for users funding positions).
 
 ### Off-Ramp (Crypto → Fiat: BTC to NGN)
 - **Strong support**: This is MavaPay's core strength and primary marketed feature.
@@ -30,10 +30,10 @@ Yes, **MavaPay works well for both on-ramp and off-ramp** in the context of your
   - No direct stablecoin on/off-ramp mentioned — stick to BTC path.
   - For pure stables: Consider alternatives like Binance P2P sim or TransFi (supports USDT/USDC → NGN), but MavaPay wins for BTC-native + Lightning speed.
 
-### Recommendation for NaijaShield PRD Update
+### Recommendation for Paymejor PRD Update
 Add MavaPay as the primary on/off-ramp provider:
 - Post-borrow: USDT/USDC → BTC (Autoswap) → MavaPay off-ramp to NGN bank.
-- Pre-deposit (optional): NGN → BTC buy via MavaPay → Atomiq bridge → shield → Vesu.
+- Pre-deposit: NGN → BTC buy via MavaPay → Atomiq bridge → shield → Vesu.
 - Demo: Video shows full loop with real-time ₦ display and bank deposit confirmation.
 
-This keeps your app NG-relevant, private (up to the fiat step), and composable. If you want sample API call examples (e.g., curl for quote/payout) or help browsing specific sub-pages (like /payouts/ngn-payout), share more details!
+[This keeps your app NG-relevant, private (up to the fiat step), and composable. If you want sample API call examples (e.g., curl for quote/payout) or help browsing specific sub-pages (like /payouts/ngn-payout), share more details!](https://github.com/stealthmoney/mavapay-docs/blob/main/api-reference/openapi.json)

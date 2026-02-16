@@ -5,6 +5,7 @@ import { RpcProvider } from 'starknet'
 import { useWallet } from '@/lib/wallet-context'
 import { useNetwork } from './useNetwork'
 import { getNetworkConfig, TOKEN_METADATA } from '@/lib/constants'
+import { SecurityValidation } from '@/lib/security-validation'
 import {
   TongoAccount,
   TongoFundParams,
@@ -101,6 +102,32 @@ export function useTongo(): UseTongoReturn {
 
       const { token, amount } = params
       const config = getNetworkConfig(network)
+
+      // Security validation: Verify Tongo protocol address
+      const contractValidation = SecurityValidation.verifyContractAddress(
+        config.contracts.tongoProtocol,
+        'tongoProtocol',
+        network
+      )
+      if (!contractValidation.valid) {
+        throw new Error(contractValidation.error)
+      }
+
+      // Security validation: Validate amount
+      const tokenSymbol = token === config.contracts.wBTC ? 'wBTC' : 'USDC'
+      const amountValidation = SecurityValidation.validateAmount({
+        amount,
+        token: tokenSymbol,
+      })
+      if (!amountValidation.valid) {
+        throw new Error(amountValidation.error)
+      }
+
+      // Security validation: Check rate limit
+      const rateLimitCheck = SecurityValidation.checkTransactionRateLimit(account.address)
+      if (!rateLimitCheck.allowed) {
+        throw new Error(rateLimitCheck.error)
+      }
 
       // In a real implementation, we would use the Tongo SDK:
       // const txHash = await tongoSDKAccount.fund({

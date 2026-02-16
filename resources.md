@@ -30,3 +30,13 @@ https://www.npmjs.com/package/@atomiqlabs/sdk?activeTab=readme
 
 https://docs.tongo.cash/protocol/contracts.html
 https://docs.tongo.cash/protocol/abi.html
+
+https://github.com/stealthmoney/mavapay-docs/blob/main/api-reference/openapi.json
+https://docs.mavapay.co/guides/simulation
+https://docs.mavapay.co/guides/buying-bitcoin
+https://docs.mavapay.co/payouts/ngn-payout
+https://docs.mavapay.co/payouts/zar-payout
+https://docs.mavapay.co/payouts/kes-payout
+https://docs.mavapay.co/api-reference/introduction
+https://docs.mavapay.co/api-reference/endpoint/withdraw/withdraw-fiat
+https://docs.mavapay.co/api-reference/endpoint/withdraw/withdraw-btc

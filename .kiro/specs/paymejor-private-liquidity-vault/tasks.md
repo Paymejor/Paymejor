@@ -269,8 +269,8 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test refresh intervals
     - _Requirements: NFR-5.4_
 
-- [ ] 13. Security Enhancements
-  - [ ] 13.1 Implement security best practices
+- [-] 13. Security Enhancements
+  - [x] 13.1 Implement security best practices
     - Add input validation for all user inputs
     - Implement rate limiting for API calls
     - Add transaction amount validation

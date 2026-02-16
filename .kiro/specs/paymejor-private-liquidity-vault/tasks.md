@@ -297,15 +297,15 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test error recovery scenarios
     - _Requirements: All AC requirements, Success Metrics_
 
-- [ ] 15. Documentation & Deployment Preparation
-  - [ ] 15.1 Update environment configuration documentation
+- [x] 15. Documentation & Deployment Preparation
+  - [x] 15.1 Update environment configuration documentation
     - Document all required environment variables for both networks
     - Create .env.example with all variables
     - Add setup instructions for Sepolia and Mainnet
     - Document contract addresses and RPC endpoints
     - _Requirements: TR-4.10, TR-4.26_
 
-  - [ ] 15.2 Prepare deployment configuration
+  - [x] 15.2 Prepare deployment configuration
     - Configure Vercel environment variables for both networks
     - Set up production RPC endpoints
     - Verify all contract addresses are correct

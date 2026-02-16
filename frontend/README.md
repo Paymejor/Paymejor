@@ -162,21 +162,71 @@ pnpm lint
 
 ## 🚢 Deployment
 
+### Quick Deployment Guide
+
+For detailed deployment instructions, see:
+- **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide
+- **[ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md)** - Environment configuration guide
+
+### Pre-Deployment Checklist
+
+Run the pre-deployment verification script:
+
+```bash
+./scripts/pre-deployment-check.sh
+```
+
+This will verify:
+- Dependencies are installed
+- TypeScript compiles without errors
+- Production build succeeds
+- Environment variables are configured
+- No critical issues exist
+
 ### Vercel Deployment
 
-1. Push code to GitHub
-2. Import project in Vercel
-3. Configure environment variables in Vercel dashboard
-4. Deploy
+1. **Prepare Environment Variables**:
+   - Copy `vercel-env-template.txt` and fill in actual values
+   - See [ENVIRONMENT_SETUP.md](./ENVIRONMENT_SETUP.md) for details
+
+2. **Deploy via Vercel Dashboard**:
+   - Push code to GitHub
+   - Import project in Vercel
+   - Configure environment variables
+   - Deploy
+
+3. **Deploy via Vercel CLI**:
+   ```bash
+   # Install Vercel CLI
+   npm install -g vercel
+   
+   # Login
+   vercel login
+   
+   # Deploy to production
+   vercel --prod
+   ```
+
+4. **Post-Deployment Verification**:
+   ```bash
+   ./scripts/deployment-checklist.sh https://your-deployment-url.vercel.app
+   ```
 
 ### Environment Variables in Production
 
-Ensure all required environment variables are set in your deployment platform:
+Ensure all required environment variables are set in Vercel:
 
-- `NEXT_PUBLIC_STARKNET_RPC_URL`
-- `NEXT_PUBLIC_NETWORK`
-- `NEXT_PUBLIC_CHAIN_ID`
-- All contract addresses (after deployment)
+**Required**:
+- `NEXT_PUBLIC_DEFAULT_NETWORK` (sepolia or mainnet)
+- `NEXT_PUBLIC_SEPOLIA_RPC_URL`
+- `NEXT_PUBLIC_MAINNET_RPC_URL`
+
+**Optional (Required for full functionality)**:
+- Sepolia contract addresses (Vesu, Tongo, wBTC, USDC)
+- Mainnet contract addresses (Vesu, Tongo, wBTC, USDC)
+- `AUTOSWAPPR_CONTRACT_ADDRESS`
+
+See [vercel-env-template.txt](./vercel-env-template.txt) for complete list.
 
 ## 📚 Integration Documentation
 

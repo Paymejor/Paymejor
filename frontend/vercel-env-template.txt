@@ -1,0 +1,129 @@
+# ============================================================================
+# PayMejor Vercel Environment Variables Template
+# ============================================================================
+# 
+# Instructions:
+# 1. Copy this file and fill in the actual values
+# 2. Import to Vercel via Dashboard or CLI
+# 3. Set appropriate environment (Production, Preview, Development)
+# 
+# ============================================================================
+
+# ============================================================================
+# Network Configuration
+# ============================================================================
+
+# Default network (mainnet for production, sepolia for preview)
+NEXT_PUBLIC_DEFAULT_NETWORK=mainnet
+
+# ============================================================================
+# Starknet Sepolia Testnet Configuration
+# ============================================================================
+
+# Sepolia RPC URL (REQUIRED)
+# Get API key from: https://infura.io or https://alchemy.com
+NEXT_PUBLIC_SEPOLIA_RPC_URL=https://starknet-sepolia.infura.io/v3/YOUR_INFURA_API_KEY
+
+# Sepolia Contract Addresses (REQUIRED for full functionality)
+# Get from: https://docs.vesu.xyz/developers/contract-addresses
+NEXT_PUBLIC_SEPOLIA_VESU_POOL_ADDRESS=
+
+# Get from: https://docs.tongo.cash/protocol/contracts.html
+# USDC Tongo instance on Sepolia
+NEXT_PUBLIC_SEPOLIA_TONGO_PROTOCOL_ADDRESS=0x2caae365e67921979a4e5c16dd70eaa5776cfc6a9592bcb903d91933aaf2552
+
+# Get from: Starknet token registry or Voyager
+# Note: wBTC may not be available on Sepolia testnet
+NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS=
+
+# USDC token on Sepolia
+NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS=0x053b40a647cedfca6ca84f542a0fe36736031905a9639a7f19a3c1e66bfd5080
+
+# ============================================================================
+# Starknet Mainnet Configuration
+# ============================================================================
+
+# Mainnet RPC URL (REQUIRED)
+# Get API key from: https://infura.io or https://alchemy.com
+NEXT_PUBLIC_MAINNET_RPC_URL=https://starknet-mainnet.infura.io/v3/YOUR_INFURA_API_KEY
+
+# Mainnet Contract Addresses (REQUIRED for full functionality)
+# Get from: https://docs.vesu.xyz/developers/contract-addresses
+# Re7 xBTC pool (supports wBTC collateral)
+NEXT_PUBLIC_MAINNET_VESU_POOL_ADDRESS=0x3a8416bf20d036df5b1cf3447630a2e1cb04685f6b0c3a70ed7fb1473548ecf
+
+# Get from: https://docs.tongo.cash/protocol/contracts.html
+# wBTC Tongo instance on Mainnet
+NEXT_PUBLIC_MAINNET_TONGO_PROTOCOL_ADDRESS=0x6d82c8c467eac77f880a1d5a090e0e0094a557bf67d74b98ba1881200750e27
+
+# Get from: Starknet token registry or Voyager
+# wBTC token on Mainnet
+NEXT_PUBLIC_MAINNET_WBTC_ADDRESS=0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac
+
+# USDC (Native) token on Mainnet
+NEXT_PUBLIC_MAINNET_USDC_ADDRESS=0x033068F6539f8e6e6b131e6B2B814e6c34A5224bC66947c47DaB9dFeE93b35fb
+
+# ============================================================================
+# AutoSwap Configuration
+# ============================================================================
+
+# AutoSwap contract address
+# From: https://github.com/BlockheaderWeb3-Community/autoswap-sdk
+AUTOSWAPPR_CONTRACT_ADDRESS=0x05582ad635c43b4c14dbfa53cbde0df32266164a0d1b36e5b510e5b34aeb364b
+
+# ============================================================================
+# Optional Configuration
+# ============================================================================
+
+# App metadata
+NEXT_PUBLIC_APP_NAME=PayMejor
+NEXT_PUBLIC_APP_VERSION=1.0.0
+
+# ============================================================================
+# Verification Checklist
+# ============================================================================
+# 
+# Before deploying, verify:
+# [✅] All RPC URLs have valid API keys
+# [✅] Mainnet contract addresses are verified on Voyager
+# [✅] Sepolia addresses are correct (Tongo USDC instance deployed)
+# [⚠️] Sepolia Vesu pool may not be available - check Vesu docs
+# [⚠️] Sepolia wBTC may not be available - test with USDC only
+# [✅] No placeholder values remain in Mainnet addresses
+# [ ] API keys have sufficient rate limits
+# [ ] Environment is set correctly (Production/Preview/Development)
+# 
+# ============================================================================
+
+# ============================================================================
+# Import Instructions
+# ============================================================================
+# 
+# Via Vercel Dashboard:
+# 1. Go to Project Settings → Environment Variables
+# 2. Copy each variable name and value
+# 3. Paste into Vercel dashboard
+# 4. Select environment (Production, Preview, Development)
+# 5. Click "Add"
+# 
+# Via Vercel CLI:
+# 1. Install: npm install -g vercel
+# 2. Login: vercel login
+# 3. Add each variable:
+#    vercel env add NEXT_PUBLIC_DEFAULT_NETWORK
+#    (Enter value when prompted)
+# 4. Repeat for all variables
+# 
+# ============================================================================
+
+# ============================================================================
+# Security Notes
+# ============================================================================
+# 
+# - Never commit this file with actual values to version control
+# - Rotate API keys regularly (every 90 days recommended)
+# - Use different API keys for production and preview
+# - Monitor RPC usage to avoid rate limits
+# - Verify all contract addresses before deployment
+# 
+# ============================================================================

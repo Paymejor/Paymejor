@@ -11,11 +11,11 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { label: 'Deposit', href: '/?tab=deposit', icon: Download },
-  { label: 'Borrow & Loop', href: '/?tab=borrow', icon: TrendingUp },
-  { label: 'Positions', href: '/?tab=positions', icon: Package },
-  { label: 'Exit to NGN', href: '/?tab=exit', icon: LogOut },
+  { label: 'Dashboard', href: '/app', icon: LayoutDashboard },
+  { label: 'Deposit', href: '/app?tab=deposit', icon: Download },
+  { label: 'Borrow & Loop', href: '/app?tab=borrow', icon: TrendingUp },
+  { label: 'Positions', href: '/app?tab=positions', icon: Package },
+  { label: 'Exit to NGN', href: '/app?tab=exit', icon: LogOut },
 ]
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {

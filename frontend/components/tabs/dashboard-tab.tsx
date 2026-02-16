@@ -10,6 +10,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useWallet } from '@/lib/wallet-context'
 import { useStarknet } from '@/hooks/useStarknet'
 import { CONTRACT_ADDRESSES, TOKEN_METADATA } from '@/lib/constants'
+import { BridgeWidget } from '@/components/bridge-widget'
+import { useToast } from '@/hooks/use-toast'
 
 /**
  * DashboardTab Component
@@ -18,6 +20,7 @@ import { CONTRACT_ADDRESSES, TOKEN_METADATA } from '@/lib/constants'
  * Implements:
  * - Real wBTC balance fetching (AC-1.6, TR-4.17)
  * - Real USDC balance fetching (AC-1.6, TR-4.17)
+ * - Atomiq bridge widget integration (AC-2.5, AC-2.7)
  * - Loading states during data fetch
  * - Error handling for failed fetches
  */
@@ -25,6 +28,7 @@ import { CONTRACT_ADDRESSES, TOKEN_METADATA } from '@/lib/constants'
 export function DashboardTab() {
   const { isConnected, address } = useWallet()
   const { getBalance } = useStarknet()
+  const { toast } = useToast()
   
   // Balance state
   const [wBTCBalance, setWBTCBalance] = useState<string>('0')
@@ -33,6 +37,9 @@ export function DashboardTab() {
   // Loading and error states
   const [isLoadingBalances, setIsLoadingBalances] = useState(false)
   const [balanceError, setBalanceError] = useState<string | null>(null)
+  
+  // Bridge widget visibility
+  const [showBridgeWidget, setShowBridgeWidget] = useState(false)
   
   // Fetch balances when wallet is connected
   useEffect(() => {
@@ -66,6 +73,30 @@ export function DashboardTab() {
     
     fetchBalances()
   }, [isConnected, address, getBalance])
+  
+  /**
+   * Handle bridge completion
+   * Requirements: AC-2.5, AC-2.7
+   */
+  const handleBridgeComplete = async (txId: string) => {
+    toast({
+      title: 'Bridge Completed',
+      description: 'Your wBTC has arrived! Refreshing balances...',
+    })
+    
+    // Refresh balances after bridge completes
+    if (isConnected && address) {
+      try {
+        const wbtcBal = await getBalance(CONTRACT_ADDRESSES.wBTC, address)
+        setWBTCBalance(wbtcBal)
+      } catch (error) {
+        console.error('Error refreshing balance:', error)
+      }
+    }
+    
+    // Hide bridge widget after completion
+    setShowBridgeWidget(false)
+  }
   
   // Format balance for display
   const formatBalance = (balance: string, decimals: number): string => {
@@ -203,14 +234,25 @@ export function DashboardTab() {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Button className="bg-primary hover:bg-primary/90">
-            Bridge BTC via Atomiq
+          <Button 
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => setShowBridgeWidget(!showBridgeWidget)}
+          >
+            {showBridgeWidget ? 'Hide Bridge' : 'Bridge BTC via Atomiq'}
           </Button>
           <Button variant="outline">Deposit Collateral</Button>
           <Button variant="outline">Borrow USDC</Button>
           <Button variant="secondary">Reveal My Private Position</Button>
         </CardContent>
       </Card>
+
+      {/* Bridge Widget - Requirements: AC-2.5, AC-2.7 */}
+      {showBridgeWidget && (
+        <BridgeWidget 
+          onBridgeComplete={handleBridgeComplete}
+          className="border-2 border-primary"
+        />
+      )}
 
       {/* Info Section */}
       <div className="grid gap-4 md:grid-cols-2">

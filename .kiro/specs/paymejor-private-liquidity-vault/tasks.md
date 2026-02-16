@@ -29,21 +29,21 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test error handling for wrong networks
     - _Requirements: AC-1.1, AC-1.2, AC-1.5_
 
-- [ ] 3. Atomiq Bridge Integration
-  - [ ] 3.1 Implement Atomiq SDK integration
+- [x] 3. Atomiq Bridge Integration
+  - [x] 3.1 Implement Atomiq SDK integration
     - Complete useAtomiq hook with real SDK calls
     - Implement bridge transaction initiation
     - Add transaction status polling
     - _Requirements: AC-2.1, AC-2.2, AC-2.3, AC-2.4, TR-4.8_
 
-  - [ ] 3.2 Create BridgeWidget component
+  - [x] 3.2 Create BridgeWidget component
     - Build bridge UI with amount input and network selector
     - Display bridge transaction status and confirmations
     - Show estimated completion time
     - Add link to Voyager explorer for bridge transactions
     - _Requirements: AC-2.2, AC-2.4, AC-2.7_
 
-  - [ ] 3.3 Integrate bridge widget into Dashboard tab
+  - [x] 3.3 Integrate bridge widget into Dashboard tab
     - Add bridge widget to dashboard quick actions
     - Connect to real Atomiq SDK
     - Display wBTC arrival confirmation

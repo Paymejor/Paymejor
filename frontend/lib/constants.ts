@@ -141,6 +141,7 @@ export const PROTOCOL_PARAMS = {
   // Transaction polling
   txPollingInterval: 10000, // 10 seconds
   maxPollingAttempts: 60, // 10 minutes max
+  txPollingTimeout: 300000, // 5 minutes timeout
   
   // Position refresh
   positionRefreshInterval: 10000, // 10 seconds

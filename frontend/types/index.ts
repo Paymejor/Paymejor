@@ -76,3 +76,16 @@ export type {
   SupportedDEX,
   DEXLiquidity,
 } from './autoswap';
+
+// Transaction management types
+export type {
+  EnhancedTransactionState,
+  TransactionHistoryEntry,
+  TransactionPollingConfig,
+  TransactionConfirmation,
+  TransactionProgress,
+  TransactionRetryOptions,
+  GasFeeEstimate,
+  TransactionFilterOptions,
+  TransactionStatistics,
+} from './transaction';

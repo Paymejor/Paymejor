@@ -27,3 +27,6 @@ https://docs.vesu.xyz/developers/interact/liquidate
 https://docs.vesu.xyz/developers/contract-addresses
 https://github.com/BlockheaderWeb3-Community/autoswap-sdk/blob/main/lib/README.md
 https://www.npmjs.com/package/@atomiqlabs/sdk?activeTab=readme
+
+https://docs.tongo.cash/protocol/contracts.html
+https://docs.tongo.cash/protocol/abi.html

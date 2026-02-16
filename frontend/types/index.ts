@@ -60,3 +60,19 @@ export type {
   VesuTransactionResult,
   VesuPoolState,
 } from './vesu';
+
+// Autoswap types
+export type {
+  AutoswapConfig,
+  SwapTokenPair,
+  SwapQuoteParams,
+  SwapQuote,
+  SwapRoute,
+  SwapExecuteParams,
+  SwapTransactionResult,
+  SlippageConfig,
+  AutoswapErrorType,
+  AutoswapError,
+  SupportedDEX,
+  DEXLiquidity,
+} from './autoswap';

@@ -122,8 +122,8 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test error handling for exceeding limits
     - _Requirements: AC-4.3, AC-4.4, AC-4.5, AC-4.6, AC-4.7_
 
-- [ ] 6. Autoswap DEX Aggregator Integration
-  - [ ] 6.1 Implement Autoswap SDK integration
+- [x] 6. Autoswap DEX Aggregator Integration
+  - [x] 6.1 Implement Autoswap SDK integration
     - Create `useAutoswap` hook with real Autoswap SDK
     - Implement swap quote fetching
     - Implement swap execution (USDC → wBTC)

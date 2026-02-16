@@ -203,8 +203,8 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test position updates after transactions
     - _Requirements: AC-6.1, AC-6.2, AC-6.4, AC-6.5, AC-6.6, AC-6.7_
 
-- [ ] 9. NGN Off-ramp Information Display
-  - [ ] 9.1 Implement off-ramp information in Exit tab
+- [x] 9. NGN Off-ramp Information Display
+  - [x] 9.1 Implement off-ramp information in Exit tab
     - Fetch real USDC balance available for withdrawal
     - Integrate live USDC/NGN exchange rate API (CoinGecko)
     - Calculate estimated NGN amount based on current rates

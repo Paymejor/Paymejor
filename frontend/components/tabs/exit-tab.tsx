@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,11 +8,65 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Spinner } from '@/components/ui/spinner'
-import { ArrowRight, AlertCircle, Lock } from 'lucide-react'
+import { ArrowRight, AlertCircle, Lock, RefreshCw, ExternalLink } from 'lucide-react'
+import { useWallet } from '@/lib/wallet-context'
+import { useStarknet } from '@/hooks/useStarknet'
+import { useNetwork } from '@/hooks/useNetwork'
+import { useExchangeRate } from '@/hooks/useExchangeRate'
+import { getNetworkConfig, TOKEN_METADATA } from '@/lib/constants'
+
+/**
+ * ExitTab Component
+ * 
+ * Displays NGN off-ramp information with:
+ * - Real USDC balance from wallet
+ * - Live USDC/NGN exchange rate from CoinGecko
+ * - Estimated NGN amount calculation
+ * - Links to P2P platforms
+ * 
+ * Requirements: AC-7.1, AC-7.2, AC-7.3, AC-7.4, AC-7.5
+ */
 
 export function ExitTab() {
   const [amount, setAmount] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [usdcBalance, setUsdcBalance] = useState<string>('0')
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+  
+  const { address, isConnected } = useWallet()
+  const { getBalance } = useStarknet()
+  const { network } = useNetwork()
+  const { rate, lastUpdated, isLoading: isLoadingRate, error: rateError, refresh, calculateNGN } = useExchangeRate()
+
+  /**
+   * Fetch real USDC balance from blockchain
+   * Requirement: AC-7.1
+   */
+  useEffect(() => {
+    async function fetchBalance() {
+      if (!isConnected || !address) {
+        setUsdcBalance('0')
+        return
+      }
+
+      try {
+        setIsLoadingBalance(true)
+        const config = getNetworkConfig(network)
+        const balance = await getBalance(config.contracts.USDC, address)
+        
+        // Convert from smallest unit to USDC (6 decimals)
+        const balanceInUSDC = (Number(balance) / Math.pow(10, TOKEN_METADATA.USDC.decimals)).toFixed(2)
+        setUsdcBalance(balanceInUSDC)
+      } catch (err) {
+        console.error('Error fetching USDC balance:', err)
+        setUsdcBalance('0')
+      } finally {
+        setIsLoadingBalance(false)
+      }
+    }
+
+    fetchBalance()
+  }, [isConnected, address, network, getBalance])
 
   const handleWithdraw = async () => {
     if (!amount || parseFloat(amount) <= 0) return
@@ -23,8 +77,37 @@ export function ExitTab() {
     setAmount('')
   }
 
-  const exchangeRate = 1800 // 1 USDC ≈ 1800 NGN (mock)
-  const estimatedNGN = (parseFloat(amount) || 0) * exchangeRate
+  // Calculate estimated NGN amount
+  // Requirement: AC-7.3
+  const estimatedNGN = calculateNGN(parseFloat(amount) || 0)
+  
+  // Format exchange rate display
+  const exchangeRateDisplay = rate ? rate.toFixed(2) : '---'
+  
+  // Format last updated time
+  const lastUpdatedDisplay = lastUpdated 
+    ? new Date(lastUpdated).toLocaleTimeString() 
+    : 'Never'
+
+  // P2P platform links
+  // Requirement: AC-7.4
+  const p2pPlatforms = [
+    {
+      name: 'Binance P2P',
+      url: 'https://p2p.binance.com/en/trade/all-payments/USDC?fiat=NGN',
+      description: 'Most liquid P2P marketplace',
+    },
+    {
+      name: 'Paxful',
+      url: 'https://paxful.com/sell-usdc',
+      description: 'Global P2P trading platform',
+    },
+    {
+      name: 'LocalBitcoins',
+      url: 'https://localbitcoins.com/',
+      description: 'Peer-to-peer marketplace',
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -37,13 +120,34 @@ export function ExitTab() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Info Banner */}
+          {/* Info Banner - Requirement: AC-7.5 */}
           <Alert className="border-primary/30 bg-primary/5">
             <Lock className="h-4 w-4 text-primary" />
             <AlertDescription>
-              This demo shows the final step of your exit strategy. In production, integrate with Binance P2P, LocalBitcoins, or other NGN ramps.
+              <strong>Disclaimer:</strong> Off-ramp to NGN is handled by external P2P platforms. 
+              PayMejor does not facilitate fiat conversions. Your on-chain lending activity remains private via Tongo.
             </AlertDescription>
           </Alert>
+
+          {/* Wallet Connection Warning */}
+          {!isConnected && (
+            <Alert className="border-yellow-500/30 bg-yellow-500/5">
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+              <AlertDescription>
+                Please connect your wallet to view your USDC balance
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Exchange Rate Error */}
+          {rateError && (
+            <Alert className="border-red-500/30 bg-red-500/5">
+              <AlertCircle className="h-4 w-4 text-red-500" />
+              <AlertDescription>
+                Failed to fetch exchange rate: {rateError}. Using cached rate if available.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Step 1: Repay Loans */}
           <div className="rounded-lg border border-border p-4 space-y-3">
@@ -73,9 +177,15 @@ export function ExitTab() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Available to Withdraw:</span>
-                    <span className="font-semibold">1,200 USDC</span>
+                    <span className="font-semibold">
+                      {isLoadingBalance ? (
+                        <Spinner className="h-4 w-4 inline" />
+                      ) : (
+                        `${usdcBalance} USDC`
+                      )}
+                    </span>
                   </div>
-                  <Button variant="outline" className="w-full">
+                  <Button variant="outline" className="w-full" disabled={!isConnected}>
                     Withdraw USDC to Wallet
                   </Button>
                 </div>
@@ -105,59 +215,71 @@ export function ExitTab() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="text-base"
-                    disabled={isLoading}
+                    disabled={isLoading || !isConnected}
                     min="0"
                     step="1"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Max available: 1,200 USDC
+                    Max available: {usdcBalance} USDC
                   </p>
                 </div>
 
-                {/* Exchange Info */}
+                {/* Exchange Info - Requirements: AC-7.2, AC-7.3 */}
                 <div className="rounded-lg bg-secondary/30 p-3 mb-4 space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Exchange Rate:</span>
-                    <span className="font-semibold">1 USDC = ₦{exchangeRate}</span>
+                    <span className="text-muted-foreground">Exchange Rate (Live):</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">
+                        {isLoadingRate ? (
+                          <Spinner className="h-4 w-4 inline" />
+                        ) : (
+                          `1 USDC = ₦${exchangeRateDisplay}`
+                        )}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={refresh}
+                        disabled={isLoadingRate}
+                        className="h-6 w-6 p-0"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${isLoadingRate ? 'animate-spin' : ''}`} />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Last updated:</span>
+                    <span>{lastUpdatedDisplay}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm pt-2 border-t border-border/50">
                     <span className="text-muted-foreground">You Receive:</span>
                     <span className="font-bold text-accent text-lg">
-                      ₦{estimatedNGN.toLocaleString()}
+                      ₦{estimatedNGN.toLocaleString('en-NG', { maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
 
-                {/* Recommended Ramps */}
+                {/* Recommended Ramps - Requirement: AC-7.4 */}
                 <div className="mb-4">
                   <p className="text-xs font-semibold text-muted-foreground mb-2">
                     RECOMMENDED P2P RAMPS
                   </p>
                   <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between"
-                      disabled={isLoading}
-                    >
-                      <span>Binance P2P</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between"
-                      disabled={isLoading}
-                    >
-                      <span>LocalBitcoins</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-between"
-                      disabled={isLoading}
-                    >
-                      <span>Paxful</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
+                    {p2pPlatforms.map((platform) => (
+                      <Button
+                        key={platform.name}
+                        variant="outline"
+                        className="w-full justify-between"
+                        disabled={isLoading}
+                        onClick={() => window.open(platform.url, '_blank')}
+                      >
+                        <div className="flex flex-col items-start">
+                          <span className="font-medium">{platform.name}</span>
+                          <span className="text-xs text-muted-foreground">{platform.description}</span>
+                        </div>
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    ))}
                   </div>
                 </div>
 
@@ -165,7 +287,7 @@ export function ExitTab() {
                 <div className="space-y-2">
                   <Button
                     onClick={handleWithdraw}
-                    disabled={isLoading || !amount}
+                    disabled={isLoading || !amount || !isConnected || !rate}
                     className="w-full bg-primary hover:bg-primary/90 h-11 font-semibold"
                     size="lg"
                   >

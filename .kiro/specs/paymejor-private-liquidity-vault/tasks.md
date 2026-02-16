@@ -55,15 +55,15 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test error handling for failed bridges
     - _Requirements: AC-2.1, AC-2.3, AC-2.4_
 
-- [ ] 4. Tongo Privacy Layer Integration
-  - [ ] 4.1 Implement Tongo SDK integration
+- [x] 4. Tongo Privacy Layer Integration
+  - [x] 4.1 Implement Tongo SDK integration
     - Create `useTongo` hook with real Tongo SDK
     - Implement Tongo account creation
     - Add fund (shield) functionality
     - Implement balance decryption
     - _Requirements: AC-3.1, AC-3.6, TR-4.14_
 
-  - [ ] 4.2 Update Deposit tab with real Tongo integration
+  - [x] 4.2 Update Deposit tab with real Tongo integration
     - Fetch real wBTC balance from wallet
     - Implement approve + fund two-step process
     - Display real transaction hashes with Voyager links

@@ -82,8 +82,8 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test error handling for invalid operations
     - _Requirements: AC-3.1, AC-3.4, AC-3.6_
 
-- [ ] 5. Vesu Lending Protocol Integration
-  - [ ] 5.1 Implement Vesu SDK integration
+- [x] 5. Vesu Lending Protocol Integration
+  - [x] 5.1 Implement Vesu SDK integration
     - Create `useVesu` hook with real Vesu SDK
     - Implement supply (deposit collateral) function
     - Implement borrow function
@@ -91,7 +91,7 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Implement borrowing capacity calculation
     - _Requirements: AC-4.1, AC-4.2, AC-4.6, AC-4.7, TR-4.12, TR-4.16, TR-4.17_
 
-  - [ ] 5.2 Update Borrow tab with real Vesu integration
+  - [x] 5.2 Update Borrow tab with real Vesu integration
     - Fetch real borrowing capacity from Vesu pool
     - Display actual LTV ratios from Vesu
     - Validate borrow amounts against pool limits
@@ -99,7 +99,7 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Show real transaction hashes and status
     - _Requirements: AC-4.3, AC-4.4, AC-4.5, AC-4.8, AC-4.9_
 
-  - [ ] 5.3 Integrate Vesu with Tongo for private borrows
+  - [x] 5.3 Integrate Vesu with Tongo for private borrows
     - Wrap Vesu borrow operations with Tongo shielding
     - Transfer borrowed USDC as shielded balance
     - Maintain privacy for debt amounts

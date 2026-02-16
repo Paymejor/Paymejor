@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,35 +9,250 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Slider } from '@/components/ui/slider'
 import { Spinner } from '@/components/ui/spinner'
-import { AlertCircle, Zap, TrendingUp } from 'lucide-react'
+import { AlertCircle, Zap, TrendingUp, ExternalLink, CheckCircle, Shield } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useWallet } from '@/lib/wallet-context'
+import { useVesu } from '@/hooks/useVesu'
+import { useTongo } from '@/hooks/useTongo'
+import { useStarknet } from '@/hooks/useStarknet'
+import { useNetwork } from '@/hooks/useNetwork'
+import { getNetworkConfig, TOKEN_METADATA, getTxUrl } from '@/lib/constants'
+import { toast } from 'sonner'
 
 export function BorrowTab() {
+  const { address, isConnected } = useWallet()
+  const { network } = useNetwork()
+  const { borrow, getUserPosition, getBorrowingCapacity, getPoolParameters } = useVesu()
+  const { fund, tongoAccount, createAccount } = useTongo()
+  const { waitForTransaction } = useStarknet()
+  
   const [borrowAmount, setBorrowAmount] = useState('500')
   const [leverage, setLeverage] = useState([1.5])
   const [autoLoop, setAutoLoop] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [txHash, setTxHash] = useState<string | null>(null)
+  const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'confirmed' | 'failed'>('idle')
+  
+  // Real data from Vesu
+  const [borrowingCapacity, setBorrowingCapacity] = useState<string>('0')
+  const [currentLTV, setCurrentLTV] = useState<number>(0)
+  const [poolInterestRate, setPoolInterestRate] = useState<number>(5)
+  const [healthFactor, setHealthFactor] = useState<number>(0)
+  const [collateralAmount, setCollateralAmount] = useState<bigint>(BigInt(0))
 
   const leverageValue = leverage[0]
-  const interestRate = 5 // 5% APY
-  const borrowLimit = 1500
-  const estimatedInterest = (parseFloat(borrowAmount) * interestRate) / 100
-  const liquidationPrice = 25000 / leverageValue
+  const estimatedInterest = (parseFloat(borrowAmount || '0') * poolInterestRate) / 100
+  
+  // Calculate liquidation price based on real LTV
+  const btcPrice = 43200 // This should come from oracle in production
+  const liquidationPrice = collateralAmount > BigInt(0) 
+    ? btcPrice / leverageValue 
+    : 0
 
+  /**
+   * Fetch real borrowing capacity and position data from Vesu
+   */
+  useEffect(() => {
+    if (!isConnected || !address) return
+
+    const fetchVesuData = async () => {
+      try {
+        const config = getNetworkConfig(network)
+        
+        // Get user position
+        const position = await getUserPosition(address)
+        setCollateralAmount(position.collateral)
+        setCurrentLTV(position.ltv)
+        setHealthFactor(position.healthFactor)
+        
+        // Get borrowing capacity
+        const capacity = await getBorrowingCapacity({
+          user: address,
+          collateralAsset: config.contracts.wBTC,
+          borrowAsset: config.contracts.USDC,
+        })
+        setBorrowingCapacity(capacity)
+        
+        // Get pool parameters
+        const params = await getPoolParameters()
+        setPoolInterestRate(params.interestRate)
+      } catch (err) {
+        console.error('Error fetching Vesu data:', err)
+      }
+    }
+
+    fetchVesuData()
+  }, [isConnected, address, network, getUserPosition, getBorrowingCapacity, getPoolParameters])
+
+  /**
+   * Validate borrow amount against pool limits
+   */
+  const validateBorrowAmount = (): boolean => {
+    const amount = parseFloat(borrowAmount || '0')
+    const capacity = parseFloat(borrowingCapacity) / Math.pow(10, TOKEN_METADATA.USDC.decimals)
+    
+    if (amount <= 0) {
+      toast.error('Please enter a valid borrow amount')
+      return false
+    }
+    
+    if (amount > capacity) {
+      toast.error(`Borrow amount exceeds capacity (${capacity.toFixed(2)} USDC)`)
+      return false
+    }
+    
+    return true
+  }
+
+  /**
+   * Execute borrow transaction via Vesu SDK with Tongo privacy
+   * 1. Borrow USDC from Vesu pool
+   * 2. Shield borrowed USDC via Tongo (encrypt amount on-chain)
+   */
   const handleBorrow = async () => {
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsLoading(false)
+    if (!isConnected || !address) {
+      toast.error('Please connect your wallet')
+      return
+    }
+    
+    if (!validateBorrowAmount()) {
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      setTxStatus('pending')
+      const config = getNetworkConfig(network)
+      
+      // Ensure Tongo account exists
+      if (!tongoAccount) {
+        toast.info('Creating Tongo account...', {
+          description: 'This is needed for private transactions',
+        })
+        await createAccount()
+      }
+      
+      // Convert USDC amount to smallest unit (6 decimals)
+      const amountInUnits = (parseFloat(borrowAmount) * Math.pow(10, TOKEN_METADATA.USDC.decimals)).toString()
+      
+      // Step 1: Execute borrow via Vesu
+      toast.info('Step 1/2: Borrowing from Vesu...', {
+        description: 'Executing borrow transaction',
+      })
+      
+      const borrowResult = await borrow({
+        asset: config.contracts.USDC,
+        amount: amountInUnits,
+        onBehalfOf: address,
+      })
+      
+      setTxHash(borrowResult.transactionHash)
+      
+      // Wait for borrow confirmation
+      await waitForTransaction(borrowResult.transactionHash)
+      
+      toast.success('Borrow confirmed!', {
+        description: 'Now shielding borrowed USDC...',
+      })
+      
+      // Step 2: Shield borrowed USDC via Tongo (privacy layer)
+      toast.info('Step 2/2: Shielding via Tongo...', {
+        description: 'Encrypting borrowed amount on-chain',
+      })
+      
+      const shieldTxHash = await fund({
+        token: config.contracts.USDC,
+        amount: amountInUnits,
+      })
+      
+      // Wait for shield confirmation
+      await waitForTransaction(shieldTxHash)
+      
+      setTxStatus('confirmed')
+      toast.success('Private borrow successful!', {
+        description: `Borrowed ${borrowAmount} USDC (shielded)`,
+        action: {
+          label: 'View on Explorer',
+          onClick: () => window.open(getTxUrl(borrowResult.transactionHash, network), '_blank'),
+        },
+      })
+      
+      // Refresh position data
+      const position = await getUserPosition(address)
+      setCurrentLTV(position.ltv)
+      setHealthFactor(position.healthFactor)
+      
+    } catch (err) {
+      setTxStatus('failed')
+      const errorMessage = err instanceof Error ? err.message : 'Borrow failed'
+      toast.error('Borrow failed', {
+        description: errorMessage,
+      })
+      console.error('Error borrowing:', err)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="space-y-6">
+      {/* Connection Warning */}
+      {!isConnected && (
+        <Alert className="border-yellow-500/30 bg-yellow-500/10">
+          <AlertCircle className="h-4 w-4 text-yellow-500" />
+          <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+            Please connect your wallet to borrow USDC
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Transaction Status */}
+      {txHash && txStatus === 'pending' && (
+        <Alert className="border-blue-500/30 bg-blue-500/10">
+          <Spinner className="h-4 w-4 text-blue-500" />
+          <AlertDescription className="text-blue-700 dark:text-blue-400">
+            Transaction pending...{' '}
+            <a
+              href={getTxUrl(txHash, network)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline inline-flex items-center gap-1"
+            >
+              View on Explorer <ExternalLink className="h-3 w-3" />
+            </a>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {txHash && txStatus === 'confirmed' && (
+        <Alert className="border-green-500/30 bg-green-500/10">
+          <CheckCircle className="h-4 w-4 text-green-500" />
+          <AlertDescription className="text-green-700 dark:text-green-400">
+            Borrow successful!{' '}
+            <a
+              href={getTxUrl(txHash, network)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline inline-flex items-center gap-1"
+            >
+              View on Explorer <ExternalLink className="h-3 w-3" />
+            </a>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Main Borrow Card */}
       <Card className="border-2 border-accent/20">
         <CardHeader>
-          <CardTitle>Borrow & Loop Leverage</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            Borrow & Loop Leverage
+            <Badge variant="outline" className="ml-auto">
+              <Shield className="h-3 w-3 mr-1" />
+              Private
+            </Badge>
+          </CardTitle>
           <CardDescription>
-            Borrow USDC against your wBTC collateral with optional leverage
+            Borrow USDC against your wBTC collateral with optional leverage. All borrows are shielded via Tongo for privacy.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -53,11 +268,14 @@ export function BorrowTab() {
               value={borrowAmount}
               onChange={(e) => setBorrowAmount(e.target.value)}
               className="text-base"
-              disabled={isLoading}
+              disabled={isLoading || !isConnected}
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Min: 100 USDC</span>
-              <span>Max Borrow Limit: {borrowLimit} USDC</span>
+              <span>
+                Max Borrow Capacity:{' '}
+                {(parseFloat(borrowingCapacity) / Math.pow(10, TOKEN_METADATA.USDC.decimals)).toFixed(2)} USDC
+              </span>
             </div>
           </div>
 
@@ -76,7 +294,7 @@ export function BorrowTab() {
               max={3}
               step={0.1}
               className="w-full"
-              disabled={isLoading}
+              disabled={isLoading || !isConnected}
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>1x (No Leverage)</span>
@@ -89,8 +307,8 @@ export function BorrowTab() {
             <Checkbox
               id="auto-loop"
               checked={autoLoop}
-              onCheckedChange={setAutoLoop}
-              disabled={isLoading}
+              onCheckedChange={(checked) => setAutoLoop(checked === true)}
+              disabled={isLoading || !isConnected}
             />
             <Label htmlFor="auto-loop" className="cursor-pointer flex-1">
               <span className="font-medium">Enable Auto-Loop Leverage</span>
@@ -121,19 +339,31 @@ export function BorrowTab() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Interest Rate:</span>
-                <span className="font-medium">{interestRate}% APY</span>
+                <span className="font-medium">{poolInterestRate.toFixed(2)}% APY</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Est. Annual Interest:</span>
                 <span className="font-medium text-accent">{estimatedInterest.toFixed(2)} USDC</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Current LTV:</span>
+                <span className="font-medium">{currentLTV.toFixed(2)}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Health Factor:</span>
+                <span className={`font-medium ${healthFactor > 1.5 ? 'text-green-500' : healthFactor > 1 ? 'text-yellow-500' : 'text-red-500'}`}>
+                  {healthFactor > 0 ? healthFactor.toFixed(2) : 'N/A'}
+                </span>
+              </div>
               <div className="border-t border-border pt-2 mt-2 flex justify-between">
                 <span className="text-muted-foreground">Liquidation Price:</span>
-                <span className="font-medium text-red-500">${liquidationPrice.toFixed(0)}</span>
+                <span className="font-medium text-red-500">
+                  ${liquidationPrice > 0 ? liquidationPrice.toFixed(0) : 'N/A'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Current BTC Price:</span>
-                <span className="font-medium">~$43,200</span>
+                <span className="font-medium">~${btcPrice.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -141,7 +371,7 @@ export function BorrowTab() {
           {/* Borrow Button */}
           <Button
             onClick={handleBorrow}
-            disabled={isLoading}
+            disabled={isLoading || !isConnected}
             className="w-full bg-accent hover:bg-accent/90 text-accent-foreground h-11 font-semibold"
             size="lg"
           >

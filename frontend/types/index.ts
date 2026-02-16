@@ -46,3 +46,17 @@ export type {
   PositionRiskLevel,
   PositionRiskAssessment,
 } from './position';
+
+// Vesu types
+export type {
+  VesuPoolConfig,
+  VesuPosition,
+  VesuSupplyParams,
+  VesuBorrowParams,
+  VesuWithdrawParams,
+  VesuRepayParams,
+  VesuBorrowingCapacityParams,
+  VesuPoolParameters,
+  VesuTransactionResult,
+  VesuPoolState,
+} from './vesu';

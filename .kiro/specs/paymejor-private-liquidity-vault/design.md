@@ -1,55 +1,67 @@
-# PayMejor - Private NGN Liquidity Vault Design (Production-Ready)
+# Paymejor - Private NGN Liquidity Engine Design (Production-Ready)
 
 ## 1. System Architecture
 
 ### 1.1 Overview
 
-This design document describes the production-ready implementation of PayMejor, integrating real blockchain functionality into the existing Next.js frontend. All components interact with live protocols on Starknet Sepolia testnet.
+This design document describes the production-ready implementation of Paymejor, integrating real blockchain functionality into the existing Next.js frontend. All components interact with live protocols on both Starknet Sepolia testnet AND Mainnet.
 
-**Key Principle**: No mocks or simulations. Every feature uses real smart contracts, real tokens, and real protocol integrations.
+**Key Principle**: No mocks or simulations. Every feature uses real smart contracts, real tokens, and real protocol integrations on both networks.
+
+**Dual Network Support**: Application supports network switching between Sepolia (testing) and Mainnet (production) with different contract addresses and RPC endpoints per network.
 
 ### 1.2 High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Existing Frontend (Next.js)               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │ get-starknet │  │    Tongo     │  │     Vesu     │      │
-│  │   (Wallet)   │  │     SDK      │  │     SDK      │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-│           │                │                 │               │
-│           └────────────────┴─────────────────┘               │
-│                            │                                 │
-│                     Starknet.js v6+                          │
-└────────────────────────────┬────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js + TypeScript)                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │   Xverse     │  │    Tongo     │  │     Vesu     │           │
+│  │     SDK      │  │     SDK      │  │     SDK      │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │   Atomiq     │  │  Autoswap    │  │   Network    │           │
+│  │     SDK      │  │     SDK      │  │   Selector   │           │
+│  └──────────────┘  └──────────────┘  └──────────────┘           │
+│                            │                                      │
+│                     Starknet.js v6+                               │
+└────────────────────────────┬─────────────────────────────────────┘
                              │
-                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Starknet Sepolia Testnet (Real)                 │
-│                                                               │
-│  ┌──────────────────┐    ┌──────────────────┐              │
-│  │  PayMejor Vault  │───▶│  Vesu Protocol   │              │
-│  │   (Deployed)     │    │  (Live Testnet)  │              │
-│  └──────────────────┘    └──────────────────┘              │
-│           │                                                  │
-│           ▼                                                  │
-│  ┌──────────────────┐    ┌──────────────────┐              │
-│  │ Tongo Protocol   │    │  wBTC Token      │              │
-│  │ (Live Testnet)   │    │  (Real ERC20)    │              │
-│  └──────────────────┘    └──────────────────┘              │
-│           │                                                  │
-│           ▼                                                  │
-│  ┌──────────────────┐                                       │
-│  │  Ekubo DEX       │                                       │
-│  │ (Live Testnet)   │                                       │
-│  └──────────────────┘                                       │
-└─────────────────────────────────────────────────────────────┘
-                             ▲
-                             │
-                    ┌────────┴────────┐
-                    │  Atomiq Bridge  │
-                    │  (External App) │
-                    └─────────────────┘
+                ┌────────────┴────────────┐
+                │                         │
+                ▼                         ▼
+┌───────────────────────────┐  ┌───────────────────────────┐
+│  Starknet Sepolia Testnet │  │   Starknet Mainnet        │
+│                           │  │                           │
+│  ┌─────────────────────┐ │  │  ┌─────────────────────┐ │
+│  │  Vesu Protocol      │ │  │  │  Vesu Protocol      │ │
+│  │  (Isolated Pools)   │ │  │  │  (Isolated Pools)   │ │
+│  └─────────────────────┘ │  │  └─────────────────────┘ │
+│           │               │  │           │               │
+│           ▼               │  │           ▼               │
+│  ┌─────────────────────┐ │  │  ┌─────────────────────┐ │
+│  │ Tongo Protocol      │ │  │  │ Tongo Protocol      │ │
+│  │ (Privacy Layer)     │ │  │  │ (Privacy Layer)     │ │
+│  └─────────────────────┘ │  │  └─────────────────────┘ │
+│           │               │  │           │               │
+│           ▼               │  │           ▼               │
+│  ┌─────────────────────┐ │  │  ┌─────────────────────┐ │
+│  │ Autoswap SDK        │ │  │  │ Autoswap SDK        │ │
+│  │ (DEX Aggregator)    │ │  │  │ (DEX Aggregator)    │ │
+│  └─────────────────────┘ │  │  └─────────────────────┘ │
+│           │               │  │           │               │
+│           ▼               │  │           ▼               │
+│  ┌─────────────────────┐ │  │  ┌─────────────────────┐ │
+│  │ wBTC/USDC Tokens    │ │  │  │ wBTC/USDC Tokens    │ │
+│  │ (Real ERC20)        │ │  │  │ (Real ERC20)        │ │
+│  └─────────────────────┘ │  │  └─────────────────────┘ │
+└───────────────────────────┘  └───────────────────────────┘
+                ▲
+                │
+       ┌────────┴────────┐
+       │  Atomiq Bridge  │
+       │  (BTC → wBTC)   │
+       └─────────────────┘
 ```
 
 ### 1.3 Existing Frontend Structure
@@ -65,32 +77,54 @@ The application already has a complete UI with these tabs:
 
 ## 2. Data Models
 
-### 2.1 User Position (On-Chain - Encrypted via Tongo)
+### 2.1 User Position (From Vesu Protocol - Encrypted via Tongo)
 
-```cairo
-struct Position {
-    owner: ContractAddress,
-    shielded_collateral: felt252,  // Encrypted wBTC amount (Tongo ciphertext)
-    shielded_debt: felt252,         // Encrypted USDC amount (Tongo ciphertext)
-    tongo_account: ContractAddress, // User's Tongo account address
-    last_updated: u64,              // Timestamp of last update
+**Note**: No custom vault contract. Positions are stored in Vesu's isolated lending pools (ERC-4626 vaults). Privacy layer is added via Tongo SDK wrapping Vesu operations.
+
+```typescript
+// Vesu Position (queried from Vesu pool)
+interface VesuPosition {
+  collateral: bigint;        // Supplied wBTC amount (from Vesu pool)
+  debt: bigint;              // Borrowed USDC amount (from Vesu pool)
+  ltv: number;               // Loan-to-value ratio (from Vesu)
+  healthFactor: number;      // Health factor (from Vesu)
+  liquidationThreshold: bigint; // From Vesu pool config
+}
+
+// Tongo Encrypted Position (privacy layer)
+interface TongoEncryptedPosition {
+  encryptedCollateral: string;  // ElGamal ciphertext
+  encryptedDebt: string;        // ElGamal ciphertext
+  tongoAccount: string;         // User's Tongo account address
 }
 ```
 
 ### 2.2 Frontend State (Client-Side - Real Data)
 
 ```typescript
-// Wallet State (from get-starknet)
+// Wallet State (from Xverse SDK)
 interface WalletState {
   isConnected: boolean;
   address: string | null;
   account: AccountInterface | null;  // Real Starknet account
-  network: 'sepolia' | 'mainnet';
+  network: 'sepolia' | 'mainnet';    // User-selected network
+  btcAddress: string | null;         // BTC address from Xverse
 }
 
-// Position State (from blockchain)
+// Network Configuration
+interface NetworkConfig {
+  network: 'sepolia' | 'mainnet';
+  rpcUrl: string;
+  vesuPoolAddress: string;           // Different per network
+  tongoProtocolAddress: string;      // Different per network
+  wbtcAddress: string;               // Different per network
+  usdcAddress: string;               // Different per network
+  explorerUrl: string;               // voyager.online or sepolia.voyager.online
+}
+
+// Position State (from Vesu + Tongo)
 interface PositionState {
-  // Raw encrypted data from contract
+  // Raw encrypted data from Tongo
   encryptedCollateral: string;
   encryptedDebt: string;
   
@@ -98,20 +132,24 @@ interface PositionState {
   collateralBalance: string | null;  // wBTC amount
   debtBalance: string | null;        // USDC amount
   
-  // Calculated from Vesu
-  ltv: number;
-  healthFactor: number;
-  liquidationThreshold: number;
-  borrowingCapacity: string;
+  // Calculated from Vesu SDK
+  ltv: number;                       // From Vesu pool
+  healthFactor: number;              // From Vesu pool
+  liquidationThreshold: number;      // From Vesu pool config
+  borrowingCapacity: string;         // From Vesu pool
+  
+  // Network context
+  network: 'sepolia' | 'mainnet';
 }
 
 // Transaction State (real blockchain transactions)
 interface TransactionState {
   hash: string;                      // Real Starknet tx hash
-  type: 'deposit' | 'borrow' | 'loop' | 'approve';
+  type: 'supply' | 'borrow' | 'withdraw' | 'repay' | 'swap' | 'approve';
   status: 'pending' | 'confirmed' | 'failed';
   timestamp: number;
-  explorerUrl: string;               // Link to Voyager
+  explorerUrl: string;               // Network-aware Voyager link
+  network: 'sepolia' | 'mainnet';
 }
 
 // Token Balances (from blockchain)
@@ -119,6 +157,7 @@ interface TokenBalances {
   wBTC: string;                      // Real balance from contract
   USDC: string;                      // Real balance from contract
   ETH: string;                       // For gas fees
+  network: 'sepolia' | 'mainnet';
 }
 ```
 
@@ -144,159 +183,210 @@ interface TokenBalances {
 8. [Simulated] NGN Off-ramp Info
 ```
 
-### 3.2 Deposit Flow (Shielded)
+### 3.2 Deposit Flow (Shielded via Tongo + Vesu Supply)
 
 ```typescript
-// Frontend orchestration
-async function depositCollateral(amount: string) {
-  // 1. Approve wBTC for Tongo contract
-  await approveToken(wBTC_ADDRESS, TONGO_ADDRESS, amount);
+// Frontend orchestration - NO custom vault contract
+async function depositCollateral(amount: string, network: 'sepolia' | 'mainnet') {
+  const config = getNetworkConfig(network);
+  
+  // 1. Approve wBTC for Vesu pool
+  await approveToken(config.wbtcAddress, config.vesuPoolAddress, amount);
   
   // 2. Create Tongo account if needed
-  const tongoAccount = await getTongoAccount(userAddress);
+  const tongoAccount = await getTongoAccount(userAddress, network);
   
-  // 3. Fund shielded balance (Tongo SDK)
-  const fundTx = await tongoAccount.fund({
-    token: wBTC_ADDRESS,
+  // 3. Supply to Vesu pool (via Vesu SDK)
+  const supplyTx = await vesuPool.supply({
+    asset: config.wbtcAddress,
+    amount: amount,
+    onBehalfOf: userAddress,
+  });
+  
+  // 4. Shield the supplied amount via Tongo
+  await tongoAccount.fund({
+    token: config.wbtcAddress,
     amount: amount,
   });
   
-  // 4. Update vault position (Cairo contract)
-  await vaultContract.deposit(tongoAccount.address, amount);
-  
   // 5. Decrypt and display new balance
-  const decryptedBalance = await tongoAccount.getBalance(wBTC_ADDRESS);
+  const decryptedBalance = await tongoAccount.getBalance(config.wbtcAddress);
   return decryptedBalance;
 }
 ```
 
-### 3.3 Borrow Flow (via Vesu)
+### 3.3 Borrow Flow (via Vesu SDK)
 
 ```typescript
-async function borrowUSDC(amount: string) {
-  // 1. Check borrowing capacity from Vesu
-  const capacity = await vesuPool.getBorrowingCapacity(
-    userPosition.collateral,
-    wBTC_PRICE
-  );
+async function borrowUSDC(amount: string, network: 'sepolia' | 'mainnet') {
+  const config = getNetworkConfig(network);
+  
+  // 1. Check borrowing capacity from Vesu pool
+  const capacity = await vesuPool.getBorrowingCapacity({
+    user: userAddress,
+    collateralAsset: config.wbtcAddress,
+    borrowAsset: config.usdcAddress,
+  });
   
   if (amount > capacity) throw new Error('Insufficient collateral');
   
-  // 2. Execute borrow via vault contract
-  const borrowTx = await vaultContract.borrow({
+  // 2. Execute borrow via Vesu SDK
+  const borrowTx = await vesuPool.borrow({
+    asset: config.usdcAddress,
     amount: amount,
-    recipient: tongoAccount.address, // Shielded recipient
+    onBehalfOf: userAddress,
   });
   
-  // 3. Vault interacts with Vesu to borrow
-  // 4. Vault transfers borrowed USDC to Tongo (shielded)
+  // 3. Shield borrowed USDC via Tongo
+  const tongoAccount = await getTongoAccount(userAddress, network);
+  await tongoAccount.fund({
+    token: config.usdcAddress,
+    amount: amount,
+  });
   
-  // 5. Decrypt and display new debt
-  const decryptedDebt = await tongoAccount.getBalance(USDC_ADDRESS);
+  // 4. Decrypt and display new debt
+  const decryptedDebt = await tongoAccount.getBalance(config.usdcAddress);
   return decryptedDebt;
 }
 ```
 
-### 3.4 Leverage Loop Flow
+### 3.4 Leverage Loop Flow (with Autoswap SDK)
 
 ```typescript
-async function leverageLoop() {
-  // 1. Borrow USDC against current collateral
-  const borrowedUSDC = await borrowUSDC(maxBorrowAmount);
+async function leverageLoop(network: 'sepolia' | 'mainnet') {
+  const config = getNetworkConfig(network);
   
-  // 2. Swap USDC → wBTC (via DEX like Ekubo)
-  const swappedWBTC = await swapUSDCToWBTC(borrowedUSDC);
+  // 1. Borrow USDC against current collateral (via Vesu)
+  const borrowedUSDC = await borrowUSDC(maxBorrowAmount, network);
   
-  // 3. Re-deposit swapped wBTC as collateral
-  await depositCollateral(swappedWBTC);
+  // 2. Swap USDC → wBTC via Autoswap SDK (aggregates Ekubo/JediSwap)
+  const autoswap = new AutoswapClient({ network });
+  const swappedWBTC = await autoswap.swap({
+    fromToken: config.usdcAddress,
+    toToken: config.wbtcAddress,
+    amount: borrowedUSDC,
+    slippage: 0.5, // 0.5%
+  });
+  
+  // 3. Re-supply swapped wBTC to Vesu pool
+  await depositCollateral(swappedWBTC, network);
   
   // 4. New borrowing capacity increased
-  return getUpdatedPosition();
+  return getUpdatedPosition(network);
 }
 ```
 
-## 4. Smart Contract Design
+## 4. Protocol Integration Design
 
-### 4.1 PayMejor Vault Contract (Cairo)
+### 4.1 Vesu SDK Integration (NO Custom Vault Contract)
 
-```cairo
-#[starknet::contract]
-mod PayMejorVault {
-    use starknet::ContractAddress;
-    use tongo::interface::ITongoProtocol;
-    use vesu::interface::IVesuPool;
-    
-    #[storage]
-    struct Storage {
-        positions: LegacyMap<ContractAddress, Position>,
-        tongo_protocol: ContractAddress,
-        vesu_pool: ContractAddress,
-        wbtc_token: ContractAddress,
-        usdc_token: ContractAddress,
-    }
-    
-    #[external(v0)]
-    fn deposit(
-        ref self: ContractState,
-        tongo_account: ContractAddress,
-        amount: u256
-    ) {
-        // 1. Transfer wBTC from user to vault
-        // 2. Approve Tongo protocol
-        // 3. Call Tongo.fund() to shield balance
-        // 4. Update position storage
-    }
-    
-    #[external(v0)]
-    fn borrow(
-        ref self: ContractState,
-        amount: u256,
-        recipient_tongo: ContractAddress
-    ) {
-        // 1. Get user position
-        // 2. Check LTV via Vesu
-        // 3. Borrow from Vesu pool
-        // 4. Transfer borrowed USDC to Tongo (shielded)
-        // 5. Update debt in position
-    }
-    
-    #[external(v0)]
-    fn leverage_loop(
-        ref self: ContractState,
-        borrow_amount: u256
-    ) {
-        // 1. Borrow USDC
-        // 2. Swap USDC → wBTC (via Ekubo)
-        // 3. Re-deposit wBTC
-    }
-    
-    #[view]
-    fn get_position(
-        self: @ContractState,
-        user: ContractAddress
-    ) -> Position {
-        // Returns encrypted position data
-    }
+**Architecture**: Direct frontend integration with Vesu isolated lending pools via SDK. No intermediary vault contract needed.
+
+```typescript
+// Vesu Pool Interface (from Vesu SDK)
+interface VesuPool {
+  // Supply collateral
+  supply(params: {
+    asset: string;
+    amount: bigint;
+    onBehalfOf: string;
+  }): Promise<TransactionReceipt>;
+  
+  // Withdraw collateral
+  withdraw(params: {
+    asset: string;
+    amount: bigint;
+    to: string;
+  }): Promise<TransactionReceipt>;
+  
+  // Borrow assets
+  borrow(params: {
+    asset: string;
+    amount: bigint;
+    onBehalfOf: string;
+  }): Promise<TransactionReceipt>;
+  
+  // Repay debt
+  repay(params: {
+    asset: string;
+    amount: bigint;
+    onBehalfOf: string;
+  }): Promise<TransactionReceipt>;
+  
+  // Query user position
+  getUserPosition(user: string): Promise<{
+    collateral: bigint;
+    debt: bigint;
+    ltv: number;
+    healthFactor: number;
+  }>;
+  
+  // Get borrowing capacity
+  getBorrowingCapacity(params: {
+    user: string;
+    collateralAsset: string;
+    borrowAsset: string;
+  }): Promise<bigint>;
 }
 ```
 
-### 4.2 Vesu Integration Interface
-
-```cairo
-#[starknet::interface]
-trait IVesuPool<TContractState> {
-    fn deposit(ref self: TContractState, asset: ContractAddress, amount: u256);
-    fn borrow(ref self: TContractState, asset: ContractAddress, amount: u256);
-    fn get_ltv(self: @TContractState, user: ContractAddress) -> u256;
-    fn get_borrow_capacity(
-        self: @TContractState,
-        collateral: u256,
-        price: u256
-    ) -> u256;
-}
+**Network Configuration**:
+```typescript
+const VESU_POOLS = {
+  sepolia: {
+    poolAddress: '0x...', // From Vesu docs
+    wbtcAddress: '0x...',
+    usdcAddress: '0x...',
+  },
+  mainnet: {
+    poolAddress: '0x...', // From Vesu docs
+    wbtcAddress: '0x...',
+    usdcAddress: '0x...',
+  },
+};
 ```
 
-## 5. Privacy Implementation
+### 4.2 Autoswap SDK Integration
+
+**Purpose**: Aggregate DEX liquidity for USDC → wBTC swaps in leverage loop
+
+```typescript
+// Autoswap Client (from SDK)
+import { AutoswapClient } from 'autoswap-sdk';
+
+const autoswap = new AutoswapClient({
+  network: 'sepolia', // or 'mainnet'
+  provider: starknetProvider,
+});
+
+// Execute swap
+const swapResult = await autoswap.swap({
+  fromToken: USDC_ADDRESS,
+  toToken: WBTC_ADDRESS,
+  amount: parseUnits('1000', 6), // 1000 USDC
+  slippage: 0.5, // 0.5% slippage tolerance
+  recipient: userAddress,
+});
+
+// Get quote before swap
+const quote = await autoswap.getQuote({
+  fromToken: USDC_ADDRESS,
+  toToken: WBTC_ADDRESS,
+  amount: parseUnits('1000', 6),
+});
+```
+
+**Network Configuration**:
+```typescript
+const AUTOSWAP_CONFIG = {
+  sepolia: {
+    // Autoswap aggregates Ekubo, JediSwap on Sepolia
+  },
+  mainnet: {
+    // Autoswap aggregates Ekubo, JediSwap, others on Mainnet
+  },
+};
+```
 
 ### 5.1 Tongo Integration
 
@@ -365,28 +455,50 @@ const decrypted = await tongoAccount.decrypt(shieldedBalance);
 │   ├── useXverse.ts
 │   ├── useAtomiq.ts
 │   ├── useTongo.ts
-│   ├── useVault.ts
-│   └── useVesu.ts
+│   ├── useVesu.ts
+│   ├── useAutoswap.ts
+│   └── useNetwork.ts
 ├── lib/
-│   ├── contracts/
-│   │   ├── vault.ts
-│   │   └── vesu.ts
+│   ├── vesu/
+│   │   └── client.ts
+│   ├── autoswap/
+│   │   └── client.ts
 │   └── utils/
 │       ├── formatting.ts
-│       └── constants.ts
+│       ├── constants.ts
+│       └── network-config.ts
 ```
 
-### 6.3 Key Components
+### 6.2 Key Components
+
+**NetworkSelector.tsx**:
+```typescript
+export function NetworkSelector() {
+  const { network, switchNetwork } = useNetwork();
+  
+  return (
+    <select value={network} onChange={(e) => switchNetwork(e.target.value)}>
+      <option value="sepolia">Starknet Sepolia</option>
+      <option value="mainnet">Starknet Mainnet</option>
+    </select>
+  );
+}
+```
 
 **WalletConnect.tsx**:
 ```typescript
 export function WalletConnect() {
   const { connect, disconnect, address, isConnected } = useXverse();
+  const { network } = useNetwork();
   
   return (
-    <button onClick={isConnected ? disconnect : connect}>
-      {isConnected ? `${address.slice(0,6)}...` : 'Connect Xverse'}
-    </button>
+    <div>
+      <NetworkSelector />
+      <button onClick={isConnected ? disconnect : connect}>
+        {isConnected ? `${address.slice(0,6)}...` : 'Connect Xverse'}
+      </button>
+      <span>{network === 'sepolia' ? 'Testnet' : 'Mainnet'}</span>
+    </div>
   );
 }
 ```
@@ -477,73 +589,131 @@ await tongoAccount.fund({
 const balance = await tongoAccount.getBalance(wBTC_ADDRESS);
 ```
 
-### 7.4 Vesu Integration
+### 7.4 Vesu SDK Integration
 
 ```typescript
 // Use Vesu SDK or direct contract calls
-import { VesuPool } from '@vesu/sdk'; // Check actual package
+import { VesuPool } from '@vesu/sdk'; // Check actual package name
 
 const vesuPool = new VesuPool({
-  poolAddress: VESU_POOL_ADDRESS,
+  poolAddress: getNetworkConfig(network).vesuPoolAddress,
   provider: starknetProvider,
+  network: network, // 'sepolia' or 'mainnet'
+});
+
+// Supply collateral
+await vesuPool.supply({
+  asset: wBTC_ADDRESS,
+  amount: depositAmount,
+  onBehalfOf: userAddress,
 });
 
 // Check borrow capacity
-const capacity = await vesuPool.getBorrowCapacity({
+const capacity = await vesuPool.getBorrowingCapacity({
   user: userAddress,
   collateralAsset: wBTC_ADDRESS,
   borrowAsset: USDC_ADDRESS,
 });
 
-// Borrow (called from vault contract)
-await vaultContract.borrow(borrowAmount);
+// Borrow
+await vesuPool.borrow({
+  asset: USDC_ADDRESS,
+  amount: borrowAmount,
+  onBehalfOf: userAddress,
+});
+
+// Get user position
+const position = await vesuPool.getUserPosition(userAddress);
+```
+
+### 7.5 Autoswap SDK Integration
+
+```typescript
+// Use Autoswap SDK for token swaps
+import { AutoswapClient } from 'autoswap-sdk';
+
+const autoswap = new AutoswapClient({
+  network: network, // 'sepolia' or 'mainnet'
+  provider: starknetProvider,
+});
+
+// Get quote
+const quote = await autoswap.getQuote({
+  fromToken: USDC_ADDRESS,
+  toToken: WBTC_ADDRESS,
+  amount: swapAmount,
+});
+
+// Execute swap
+const swapTx = await autoswap.swap({
+  fromToken: USDC_ADDRESS,
+  toToken: WBTC_ADDRESS,
+  amount: swapAmount,
+  slippage: 0.5, // 0.5%
+  recipient: userAddress,
+});
 ```
 
 ## 8. Deployment Strategy
 
-### 8.1 Contract Deployment Order
+### 8.1 No Contract Deployment Needed
 
-1. Deploy PayMejor Vault contract to Sepolia
-2. Configure Tongo protocol address
-3. Configure Vesu pool address
-4. Configure wBTC and USDC token addresses
-5. Verify contract on Voyager
+**Key Change**: No custom vault contract. All lending operations go directly through Vesu SDK.
+
+**Configuration Only**:
+1. Set up environment variables for both networks
+2. Configure Vesu pool addresses (Sepolia + Mainnet)
+3. Configure Tongo protocol addresses (Sepolia + Mainnet)
+4. Configure token addresses (wBTC, USDC per network)
+5. Configure RPC endpoints per network
 
 ### 8.2 Frontend Deployment
 
 - **Hosting**: Vercel (Next.js optimized)
-- **Environment Variables**:
-  - `NEXT_PUBLIC_STARKNET_RPC_URL`
-  - `NEXT_PUBLIC_VAULT_ADDRESS`
-  - `NEXT_PUBLIC_VESU_POOL_ADDRESS`
-  - `NEXT_PUBLIC_TONGO_PROTOCOL_ADDRESS`
-  - `NEXT_PUBLIC_WBTC_ADDRESS`
-  - `NEXT_PUBLIC_USDC_ADDRESS`
+- **Environment Variables** (per network):
+  
+  **Sepolia**:
+  - `NEXT_PUBLIC_SEPOLIA_RPC_URL`
+  - `NEXT_PUBLIC_SEPOLIA_VESU_POOL_ADDRESS`
+  - `NEXT_PUBLIC_SEPOLIA_TONGO_PROTOCOL_ADDRESS`
+  - `NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS`
+  - `NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS`
+  
+  **Mainnet**:
+  - `NEXT_PUBLIC_MAINNET_RPC_URL`
+  - `NEXT_PUBLIC_MAINNET_VESU_POOL_ADDRESS`
+  - `NEXT_PUBLIC_MAINNET_TONGO_PROTOCOL_ADDRESS`
+  - `NEXT_PUBLIC_MAINNET_WBTC_ADDRESS`
+  - `NEXT_PUBLIC_MAINNET_USDC_ADDRESS`
 
 ### 8.3 Testing Strategy
 
 **Unit Tests**:
-- Cairo contract functions
 - Frontend utility functions
 - SDK integration wrappers
+- Network configuration logic
 
 **Integration Tests**:
-- Full deposit flow on testnet
-- Full borrow flow on testnet
-- Leverage loop on testnet
+- Full deposit flow on Sepolia
+- Full borrow flow on Sepolia
+- Leverage loop on Sepolia
+- Network switching
 
 **E2E Tests**:
-- Complete user journey from connect to position view
+- Complete user journey on Sepolia
+- Complete user journey on Mainnet (with small amounts)
 - Error handling scenarios
+- Network switching during operations
 
 ## 9. Security Considerations
 
 ### 9.1 Smart Contract Security
 
-- **Reentrancy**: Use checks-effects-interactions pattern
-- **Access Control**: Only position owner can borrow/withdraw
-- **Oracle**: Use Vesu's price feeds (trusted for MVP)
-- **Overflow**: Cairo's native u256 prevents overflows
+- **No Custom Contracts**: Using Vesu's audited lending pools
+- **Vesu Security**: Leverage Vesu's existing audits and battle-tested code
+- **Tongo Security**: Use Tongo's audited privacy protocol
+- **No Oracle Risk**: Use Vesu's built-in price feeds
+- **No Reentrancy**: No custom contract logic to exploit
 
 ### 9.2 Frontend Security
 
@@ -615,11 +785,12 @@ await vaultContract.borrow(borrowAmount);
 
 ## 13. Future Enhancements (Post-MVP)
 
-- Mainnet deployment
+- Advanced position management (partial withdrawals/repayments)
 - Multiple collateral types (ETH, STRK)
-- Liquidation bot
-- Partial withdrawals/repayments
+- Liquidation monitoring and alerts
 - Actual NGN on/off-ramp integration
 - Mobile app (React Native)
 - Advanced analytics dashboard
 - Governance token
+- Garaga ZK verifier for proof of solvency
+- Cross-chain bridging (other L2s)

@@ -4,7 +4,8 @@ import { useState, useCallback } from 'react'
 import { RpcProvider } from 'starknet'
 import { useWallet } from '@/lib/wallet-context'
 import { TransactionState } from '@/types/starknet'
-import { NETWORK_CONFIG, PROTOCOL_PARAMS, getTxUrl } from '@/lib/constants'
+import { getNetworkConfig, PROTOCOL_PARAMS, getTxUrl } from '@/lib/constants'
+import { useNetwork } from './useNetwork'
 
 /**
  * useStarknet Hook
@@ -15,7 +16,7 @@ import { NETWORK_CONFIG, PROTOCOL_PARAMS, getTxUrl } from '@/lib/constants'
  * - waitForTransaction(): Poll transaction status
  * - Transaction state management
  * 
- * Requirements: TR-4.17, TR-4.20
+ * Requirements: TR-4.17, TR-4.20, TR-4.27
  */
 
 interface UseStarknetReturn {
@@ -35,7 +36,8 @@ interface SendTransactionParams {
 }
 
 export function useStarknet(): UseStarknetReturn {
-  const { account, network } = useWallet()
+  const { account } = useWallet()
+  const { network } = useNetwork()
   const [transactions, setTransactions] = useState<TransactionState[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -51,8 +53,11 @@ export function useStarknet(): UseStarknetReturn {
     try {
       setError(null)
       
+      // Get network-specific RPC URL
+      const config = getNetworkConfig(network)
+      
       // Create RPC provider
-      const provider = new RpcProvider({ nodeUrl: NETWORK_CONFIG.rpcUrl })
+      const provider = new RpcProvider({ nodeUrl: config.rpcUrl })
       
       // Call balanceOf using provider.callContract
       const result = await provider.callContract({
@@ -75,7 +80,7 @@ export function useStarknet(): UseStarknetReturn {
       console.error('Error fetching balance:', err)
       throw new Error(errorMessage)
     }
-  }, [])
+  }, [network])
 
   /**
    * Send a transaction with error handling
@@ -136,8 +141,11 @@ export function useStarknet(): UseStarknetReturn {
     try {
       setError(null)
       
+      // Get network-specific RPC URL
+      const config = getNetworkConfig(network)
+      
       // Create RPC provider
-      const provider = new RpcProvider({ nodeUrl: NETWORK_CONFIG.rpcUrl })
+      const provider = new RpcProvider({ nodeUrl: config.rpcUrl })
       
       let attempts = 0
       const maxAttempts = PROTOCOL_PARAMS.maxPollingAttempts

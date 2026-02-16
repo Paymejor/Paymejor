@@ -19,3 +19,11 @@
 *Xverse Starknet Wallet: https://www.xverse.app/starknet-wallet
 *Ekubo Docs: https://docs.ekubo.org/
 *Ekubo API: https://docs.ekubo.org/integration-guides/reference/ekubo-api, https://prod-api.ekubo.org/openapi.json
+
+
+https://docs.vesu.xyz/developers/interact/supply-withdraw
+https://docs.vesu.xyz/developers/interact/borrow-repay
+https://docs.vesu.xyz/developers/interact/liquidate
+https://docs.vesu.xyz/developers/contract-addresses
+https://github.com/BlockheaderWeb3-Community/autoswap-sdk/blob/main/lib/README.md
+https://www.npmjs.com/package/@atomiqlabs/sdk?activeTab=readme

@@ -5,12 +5,13 @@ import { AccountInterface, constants } from 'starknet'
 import { connect as connectStarknet, disconnect as disconnectStarknet } from '@starknet-io/get-starknet'
 import type { StarknetWindowObject } from '@starknet-io/get-starknet'
 import { WalletState, TokenBalances } from '@/types/starknet'
-import { NETWORK_CONFIG } from './constants'
+import { SupportedNetwork } from './constants'
 
 interface WalletContextType extends WalletState {
   balances: TokenBalances
   connect: () => Promise<void>
   disconnect: () => void
+  setNetwork: (network: SupportedNetwork) => void
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined)
@@ -19,11 +20,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false)
   const [address, setAddress] = useState<string | null>(null)
   const [account, setAccount] = useState<AccountInterface | null>(null)
-  const [network, setNetwork] = useState<'sepolia' | 'mainnet'>('sepolia')
+  const [network, setNetworkState] = useState<SupportedNetwork>('sepolia')
   const [balances, setBalances] = useState<TokenBalances>({
     wBTC: '0',
     USDC: '0',
     ETH: '0',
+    network: 'sepolia',
   })
 
   // Handle wallet events and reconnection on mount
@@ -44,7 +46,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           console.warn('Network changed to non-Sepolia network')
           disconnect()
         } else {
-          setNetwork(detectedNetwork)
+          setNetworkState(detectedNetwork)
         }
       }
     }
@@ -56,24 +58,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           modalMode: 'neverAsk',
         })
         
-        if (starknet) {
-          // Check if wallet is already connected
-          const isWalletConnected = starknet.isConnected
-          
-          if (isWalletConnected) {
-            const walletAccount = starknet.account
-            const chainId = await starknet.provider.getChainId()
-            const detectedNetwork = chainId === constants.StarknetChainId.SN_SEPOLIA 
-              ? 'sepolia' 
-              : 'mainnet'
+        if (starknet && starknet.isConnected) {
+          const walletAccount = starknet.account
+          const chainId = await starknet.provider.getChainId()
+          const detectedNetwork = chainId === constants.StarknetChainId.SN_SEPOLIA 
+            ? 'sepolia' 
+            : 'mainnet'
 
-            if (detectedNetwork === 'sepolia') {
-              setIsConnected(true)
-              setAddress(walletAccount.address)
-              setAccount(walletAccount)
-              setNetwork(detectedNetwork)
-              console.log('Wallet reconnected:', walletAccount.address)
-            }
+          if (detectedNetwork === 'sepolia') {
+            setIsConnected(true)
+            setAddress(walletAccount.address)
+            setAccount(walletAccount)
+            setNetworkState(detectedNetwork)
+            console.log('Wallet reconnected:', walletAccount.address)
           }
         }
       } catch (error) {
@@ -131,13 +128,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(true)
       setAddress(walletAccount.address)
       setAccount(walletAccount)
-      setNetwork(detectedNetwork)
+      setNetworkState(detectedNetwork)
       
       // Initial balances will be fetched by other hooks
       setBalances({
         wBTC: '0',
         USDC: '0',
         ETH: '0',
+        network: detectedNetwork,
       })
 
       console.log('Wallet connected:', walletAccount.address)
@@ -160,11 +158,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(false)
       setAddress(null)
       setAccount(null)
-      setNetwork('sepolia')
       setBalances({
         wBTC: '0',
         USDC: '0',
         ETH: '0',
+        network: network,
       })
 
       console.log('Wallet disconnected')
@@ -177,6 +175,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const setNetwork = (newNetwork: SupportedNetwork) => {
+    setNetworkState(newNetwork)
+    // Update balances network reference
+    setBalances(prev => ({
+      ...prev,
+      network: newNetwork,
+    }))
+  }
+
   return (
     <WalletContext.Provider
       value={{
@@ -187,6 +194,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         balances,
         connect,
         disconnect,
+        setNetwork,
       }}
     >
       {children}

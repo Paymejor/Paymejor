@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Navbar } from '@/components/navbar'
 import { WalletProvider } from '@/lib/wallet-context'
 import { BottomNav } from '@/components/bottom-nav'
@@ -11,16 +11,21 @@ import { PositionsTab } from '@/components/tabs/positions-tab'
 import { ExitTab } from '@/components/tabs/exit-tab'
 import { useSearchParams } from 'next/navigation'
 
-function HomeContent() {
+function TabManager({ onTabChange }: { onTabChange: (tab: string) => void }) {
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState('dashboard')
 
   useEffect(() => {
     const tab = searchParams.get('tab')
     if (tab) {
-      setActiveTab(tab)
+      onTabChange(tab)
     }
-  }, [searchParams])
+  }, [searchParams, onTabChange])
+
+  return null
+}
+
+function HomeContent() {
+  const [activeTab, setActiveTab] = useState('dashboard')
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -55,6 +60,11 @@ function HomeContent() {
 
       {/* Bottom Navigation */}
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      
+      {/* Tab Manager with Suspense */}
+      <Suspense fallback={null}>
+        <TabManager onTabChange={setActiveTab} />
+      </Suspense>
     </div>
   )
 }

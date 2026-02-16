@@ -3,9 +3,16 @@
  * 
  * Validates required environment variables on app startup.
  * Provides helpful error messages for missing or invalid configuration.
+ * Supports dual network configuration (Sepolia + Mainnet).
  */
 
-import { REQUIRED_ENV_VARS, OPTIONAL_ENV_VARS, NETWORK_CONFIG, CONTRACT_ADDRESSES } from './constants';
+import { 
+  REQUIRED_ENV_VARS, 
+  OPTIONAL_ENV_VARS, 
+  NETWORK_CONFIGS,
+  SupportedNetwork,
+  getDefaultNetwork,
+} from './constants';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -20,7 +27,7 @@ export function validateEnvironment(): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Check required environment variables
+  // Check required environment variables (RPC URLs)
   for (const envVar of REQUIRED_ENV_VARS) {
     const value = process.env[envVar];
     
@@ -29,42 +36,69 @@ export function validateEnvironment(): ValidationResult {
     }
   }
 
-  // Validate RPC URL format
-  if (NETWORK_CONFIG.rpcUrl) {
+  // Validate RPC URL formats for both networks
+  const sepoliaRpcUrl = process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL;
+  const mainnetRpcUrl = process.env.NEXT_PUBLIC_MAINNET_RPC_URL;
+
+  if (sepoliaRpcUrl) {
     try {
-      new URL(NETWORK_CONFIG.rpcUrl);
+      new URL(sepoliaRpcUrl);
     } catch {
-      errors.push(`Invalid RPC URL format: ${NETWORK_CONFIG.rpcUrl}`);
+      errors.push(`Invalid Sepolia RPC URL format: ${sepoliaRpcUrl}`);
     }
   }
 
-  // Validate network value
-  const validNetworks = ['sepolia', 'mainnet'];
-  if (NETWORK_CONFIG.network && !validNetworks.includes(NETWORK_CONFIG.network)) {
-    errors.push(`Invalid network: ${NETWORK_CONFIG.network}. Must be one of: ${validNetworks.join(', ')}`);
+  if (mainnetRpcUrl) {
+    try {
+      new URL(mainnetRpcUrl);
+    } catch {
+      errors.push(`Invalid Mainnet RPC URL format: ${mainnetRpcUrl}`);
+    }
   }
 
-  // Check optional contract addresses (warnings only)
-  const missingContracts: string[] = [];
-  
-  if (!CONTRACT_ADDRESSES.vault) missingContracts.push('NEXT_PUBLIC_VAULT_ADDRESS');
-  if (!CONTRACT_ADDRESSES.tongoProtocol) missingContracts.push('NEXT_PUBLIC_TONGO_PROTOCOL_ADDRESS');
-  if (!CONTRACT_ADDRESSES.vesuPool) missingContracts.push('NEXT_PUBLIC_VESU_POOL_ADDRESS');
-  if (!CONTRACT_ADDRESSES.wBTC) missingContracts.push('NEXT_PUBLIC_WBTC_ADDRESS');
-  if (!CONTRACT_ADDRESSES.USDC) missingContracts.push('NEXT_PUBLIC_USDC_ADDRESS');
-
-  if (missingContracts.length > 0) {
-    warnings.push(
-      `Contract addresses not configured: ${missingContracts.join(', ')}. ` +
-      `Some features may not work until contracts are deployed and addresses are added.`
+  // Validate default network value
+  const defaultNetwork = process.env.NEXT_PUBLIC_DEFAULT_NETWORK;
+  if (defaultNetwork && defaultNetwork !== 'sepolia' && defaultNetwork !== 'mainnet') {
+    errors.push(
+      `Invalid default network: ${defaultNetwork}. Must be 'sepolia' or 'mainnet'`
     );
   }
 
-  // Validate contract address format (if provided)
-  const contractEntries = Object.entries(CONTRACT_ADDRESSES);
-  for (const [name, address] of contractEntries) {
-    if (address && !isValidStarknetAddress(address)) {
-      errors.push(`Invalid Starknet address format for ${name}: ${address}`);
+  // Check contract addresses for each network (warnings only)
+  const networks: SupportedNetwork[] = ['sepolia', 'mainnet'];
+  
+  for (const network of networks) {
+    const config = NETWORK_CONFIGS[network];
+    const missingContracts: string[] = [];
+    
+    if (!config.contracts.vesuPool) {
+      missingContracts.push(`NEXT_PUBLIC_${network.toUpperCase()}_VESU_POOL_ADDRESS`);
+    }
+    if (!config.contracts.tongoProtocol) {
+      missingContracts.push(`NEXT_PUBLIC_${network.toUpperCase()}_TONGO_PROTOCOL_ADDRESS`);
+    }
+    if (!config.contracts.wBTC) {
+      missingContracts.push(`NEXT_PUBLIC_${network.toUpperCase()}_WBTC_ADDRESS`);
+    }
+    if (!config.contracts.USDC) {
+      missingContracts.push(`NEXT_PUBLIC_${network.toUpperCase()}_USDC_ADDRESS`);
+    }
+
+    if (missingContracts.length > 0) {
+      warnings.push(
+        `${network.charAt(0).toUpperCase() + network.slice(1)} contract addresses not configured: ${missingContracts.join(', ')}. ` +
+        `Some features may not work on ${network} until addresses are added.`
+      );
+    }
+
+    // Validate contract address format (if provided)
+    const contractEntries = Object.entries(config.contracts);
+    for (const [name, address] of contractEntries) {
+      if (address && !isValidStarknetAddress(address)) {
+        errors.push(
+          `Invalid Starknet address format for ${network} ${name}: ${address}`
+        );
+      }
     }
   }
 

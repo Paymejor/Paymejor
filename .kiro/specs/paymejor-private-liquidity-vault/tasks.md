@@ -1,352 +1,333 @@
-# PayMejor Implementation Tasks (Production-Ready)
+# Implementation Plan: PayMejor Private Liquidity Engine
 
 ## Overview
 
-This implementation plan integrates real blockchain functionality into the existing Next.js frontend. All features will work with live protocols on Starknet Sepolia testnet - **no mocks or simulations**.
-
-**Existing Frontend**: Complete UI with 5 tabs (Dashboard, Deposit, Borrow, Positions, Exit)  
-**Implementation Focus**: Replace mock data with real blockchain integrations
-
----
-
-## Phase 1: Environment Setup & Dependencies (Day 1)
-
-- [x] 1. [Frontend] Install Blockchain Dependencies
-  - [x] 1.1 [Frontend] Install starknet.js v6+ (`pnpm add starknet@next`)
-  - [x] 1.2 [Frontend] Install Xverse SDK/connector (check xverse.app/dev for package)
-  - [x] 1.3 [Frontend] Install Atomiq SDK (`pnpm add @atomiqlabs/sdk`)
-  - [x] 1.4 [Frontend] Install Tongo SDK (`pnpm add @fatsolutions/tongo-sdk`)
-  - [x] 1.5 [Frontend] Remove any unused dependencies (Vesu, Ekubo not needed for MVP)
-  - _Requirements: TR-4.5, TR-4.6, TR-4.7_
-
-- [x] 2. [Frontend] Environment Configuration
-  - [x] 2.1 [Frontend] Create .env.local with Starknet Sepolia RPC URL
-  - [x] 2.2 [Frontend] Add environment variables for contract addresses
-  - [x] 2.3 [Frontend] Create lib/constants.ts with network config and addresses
-  - [x] 2.4 [Frontend] Add environment variable validation on app startup
-  - [x] 2.5 [Frontend] Document all required environment variables in README
-  - _Requirements: TR-4.21, TR-4.24_
-
-- [x] 3. [Frontend] Create Type Definitions
-  - [x] 3.1 [Frontend] Create types/starknet.ts with Starknet types
-  - [x] 3.2 [Frontend] Create types/tongo.ts with Tongo SDK types
-  - [x] 3.3 [Frontend] Create types/atomiq.ts with Atomiq SDK types
-  - [x] 3.4 [Frontend] Create types/position.ts with position data types
-  - [x] 3.5 [Frontend] Update existing types to remove mock structures
-  - _Requirements: TR-4.17_
-
----
-
-## Phase 2: Real Wallet Integration (Days 1-2)
-
-- [x] 4. [Frontend] Replace Mock Wallet Context
-  - [x] 4.1 [Frontend] Update lib/wallet-context.tsx to use Xverse SDK
-  - [x] 4.2 [Frontend] Implement real connect() for Xverse wallet
-  - [x] 4.3 [Frontend] Implement real disconnect() with cleanup
-  - [x] 4.4 [Frontend] Store real Starknet AccountInterface in context
-  - [x] 4.5 [Frontend] Add network detection (ensure Sepolia)
-  - _Requirements: AC-1.1, AC-1.2, AC-1.3, TR-4.15_
-
-- [x] 5. [Frontend] Update Navbar Component
-  - [x] 5.1 [Frontend] Update navbar.tsx to display real Xverse wallet address
-  - [x] 5.2 [Frontend] Add network indicator showing "Starknet Sepolia"
-  - [x] 5.3 [Frontend] Add wallet connection error handling
-  - [x] 5.4 [Frontend] Test with Xverse wallet on Sepolia
-  - [x] 5.5 [Frontend] Verify BTC + Starknet address display
-  - _Requirements: AC-1.4, AC-1.5, NFR-5.9_
-
-- [x] 6. [Frontend] Create Starknet Hook
-  - [x] 6.1 [Frontend] Create hooks/useStarknet.ts for blockchain interactions
-  - [x] 6.2 [Frontend] Implement getBalance() to fetch real token balances
-  - [x] 6.3 [Frontend] Implement sendTransaction() wrapper with error handling
-  - [x] 6.4 [Frontend] Implement waitForTransaction() to poll tx status
-  - [x] 6.5 [Frontend] Add transaction state management
-  - _Requirements: TR-4.17, TR-4.20_
-
----
-
-## Phase 3: Dashboard Tab - Real Data & Bridge (Days 2-3)
-
-- [x] 7. [Frontend] Update Dashboard with Real Balances
-  - [x] 7.1 [Frontend] Update dashboard-tab.tsx to fetch real wBTC balance
-  - [x] 7.2 [Frontend] Fetch real USDC balance from connected wallet
-  - [x] 7.3 [Frontend] Replace hardcoded stats with real blockchain data
-  - [x] 7.4 [Frontend] Add loading states while fetching data
-  - [x] 7.5 [Frontend] Add error handling for failed fetches
-  - _Requirements: AC-1.6, TR-4.17_
-
-- [ ] 8. [Frontend] Implement Atomiq Bridge Widget
-  - [ ] 8.1 [Frontend] Create hooks/useAtomiq.ts for Atomiq SDK integration
-  - [ ] 8.2 [Frontend] Initialize AtomiqClient with Sepolia testnet config
-  - [ ] 8.3 [Frontend] Create BridgeWidget component with BTC amount input
-  - [ ] 8.4 [Frontend] Implement initiateBridge() function calling Atomiq SDK
-  - [ ] 8.5 [Frontend] Implement getTransactionStatus() to poll bridge status
-  - [ ] 8.6 [Frontend] Display bridge transaction status (pending/confirmed/completed)
-  - [ ] 8.7 [Frontend] Add bridge widget to Dashboard tab
-  - [ ] 8.8 [Frontend] Test bridge flow with real Xverse wallet on Sepolia
-  - _Requirements: AC-2.1, AC-2.2, AC-2.3, AC-2.4, AC-2.5, AC-2.6_
-
----
-
-## Phase 4: Tongo Privacy Integration (Days 3-4)
-
-- [ ] 9. [Frontend] Create Tongo Hook
-  - [ ] 9.1 [Frontend] Create hooks/useTongo.ts for Tongo SDK
-  - [ ] 9.2 [Frontend] Initialize TongoProvider with Sepolia RPC
-  - [ ] 9.3 [Frontend] Implement createTongoAccount() from Xverse Starknet signer
-  - [ ] 9.4 [Frontend] Implement fundShielded() to deposit privately
-  - [ ] 9.5 [Frontend] Implement getShieldedBalance() to fetch encrypted balance
-  - [ ] 9.6 [Frontend] Implement decryptBalance() using user's key
-  - [ ] 9.7 [Frontend] Add error handling for Tongo operations
-  - _Requirements: AC-3.1, TR-4.16_
-
-- [ ] 10. [Frontend] Update Deposit Tab with Tongo
-  - [ ] 10.1 [Frontend] Update deposit-tab.tsx to fetch real wBTC balance
-  - [ ] 10.2 [Frontend] Implement real approve tx for wBTC → Tongo
-  - [ ] 10.3 [Frontend] Implement real fund tx to shield balance
-  - [ ] 10.4 [Frontend] Display real tx hashes with Voyager links
-  - [ ] 10.5 [Frontend] Update status based on real confirmations
-  - [ ] 10.6 [Frontend] Show success with decrypted balance
-  - [ ] 10.7 [Frontend] Add error handling for failed transactions
-  - _Requirements: AC-3.2, AC-3.3, AC-3.4, AC-3.5, AC-3.6, AC-3.7_
-
-- [ ] 11. [Frontend] Test Tongo on Sepolia
-  - [ ] 11.1 [Frontend] Test wBTC approval on Sepolia testnet
-  - [ ] 11.2 [Frontend] Test shielded deposit with real Tongo
-  - [ ] 11.3 [Frontend] Verify balance encrypted on-chain (Voyager)
-  - [ ] 11.4 [Frontend] Test balance decryption with user's key
-  - [ ] 11.5 [Frontend] Verify privacy: amounts hidden on-chain
-  - _Requirements: AC-3.6_
-
----
-
-## Phase 5: Cairo Vault Contract (Days 4-6)
-
-- [ ] 12. [Contract] Set Up Cairo Project
-  - [ ] 12.1 [Contract] Initialize Scarb project for PayMejor Vault
-  - [ ] 12.2 [Contract] Add dependencies: Tongo interfaces, OpenZeppelin
-  - [ ] 12.3 [Contract] Define Position struct with encrypted fields
-  - [ ] 12.4 [Contract] Set up storage with Map for positions
-  - [ ] 12.5 [Contract] Add initialization with Tongo protocol address
-  - _Requirements: TR-4.7, TR-4.8_
-
-- [ ] 13. [Contract] Implement Core Vault Functions
-  - [ ] 13.1 [Contract] Implement deposit() calling Tongo.fund()
-  - [ ] 13.2 [Contract] Implement mock USDC pool (simple mint/faucet)
-  - [ ] 13.3 [Contract] Implement mock oracle for BTC price
-  - [ ] 13.4 [Contract] Implement borrow() with mock LTV calculation
-  - [ ] 13.5 [Contract] Implement get_position() view function
-  - [ ] 13.6 [Contract] Implement get_borrowing_capacity() view
-  - [ ] 13.7 [Contract] Add events for state changes
-  - [ ] 13.8 [Contract] Add access control (owner only)
-  - _Requirements: TR-4.9, TR-4.10, TR-4.11, TR-4.12, TR-4.13, TR-4.14_
-
-- [ ] 14. [Contract] Implement Simple Leverage Loop
-  - [ ] 14.1 [Contract] Implement leverage_loop() function
-  - [ ] 14.2 [Contract] Implement simple loop: borrow → re-deposit as collateral
-  - [ ] 14.3 [Contract] Add loop iteration limit (max 1 for MVP)
-  - [ ] 14.4 [Contract] Skip DEX integration (simplified for MVP)
-  - [ ] 14.5 [Contract] Add slippage protection (basic checks)
-  - _Requirements: AC-5.2, AC-5.5_
-
-- [ ] 15. [Contract] Deploy to Sepolia
-  - [ ] 15.1 [Contract] Deploy PayMejor Vault to Sepolia
-  - [ ] 15.2 [Contract] Verify source code on Voyager
-  - [ ] 15.3 [Contract] Update .env.local with contract address
-  - [ ] 15.4 [Contract] Test contract with Starknet.js
-  - [ ] 15.5 [Contract] Document address and ABI in README
-  - _Requirements: TR-4.7_
-
----
-
-## Phase 6: Vault Frontend Integration (Days 6-7)
-
-- [ ] 16. [Frontend] Create Vault Contract Hook
-  - [ ] 16.1 [Frontend] Create hooks/useVault.ts for vault interactions
-  - [ ] 16.2 [Frontend] Implement deposit() wrapper calling vault contract
-  - [ ] 16.3 [Frontend] Implement borrow() wrapper calling vault contract
-  - [ ] 16.4 [Frontend] Implement getPosition() from contract
-  - [ ] 16.5 [Frontend] Implement getBorrowingCapacity() from contract
-  - [ ] 16.6 [Frontend] Add tx status tracking with real hashes
-  - [ ] 16.7 [Frontend] Add error handling for contract failures
-  - _Requirements: TR-4.16, TR-4.18, TR-4.20_
-
-- [ ] 17. [Frontend] Update Borrow Tab
-  - [ ] 17.1 [Frontend] Update borrow-tab.tsx with real borrowing capacity
-  - [ ] 17.2 [Frontend] Display real LTV from vault contract (mock oracle)
-  - [ ] 17.3 [Frontend] Display real liquidation threshold
-  - [ ] 17.4 [Frontend] Implement real borrow tx through vault
-  - [ ] 17.5 [Frontend] Display real tx hash with Voyager link
-  - [ ] 17.6 [Frontend] Update UI after on-chain confirmation
-  - [ ] 17.7 [Frontend] Add validation against vault limits
-  - _Requirements: AC-4.2, AC-4.3, AC-4.4, AC-4.5, AC-4.6, AC-4.7_
-
----
-
-## Phase 7: Leverage Loop (Day 7)
-
-- [ ] 18. [Frontend] Implement Simple Loop in Borrow Tab
-  - [ ] 18.1 [Frontend] Update borrow-tab.tsx for auto-loop checkbox
-  - [ ] 18.2 [Frontend] Implement simple loop: borrow → re-deposit (no DEX swap)
-  - [ ] 18.3 [Frontend] Display multi-step progress with tx hashes
-  - [ ] 18.4 [Frontend] Calculate projected LTV after loop
-  - [ ] 18.5 [Frontend] Calculate liquidation price from mock oracle
-  - [ ] 18.6 [Frontend] Add error handling for failed steps
-  - [ ] 18.7 [Frontend] Test complete loop on Sepolia
-  - _Requirements: AC-5.1, AC-5.2, AC-5.3, AC-5.4, AC-5.5, AC-5.6_
-
----
-
-## Phase 8: Position Management (Days 7-8)
-
-- [ ] 19. [Frontend] Update Positions Tab
-  - [ ] 19.1 [Frontend] Update positions-tab.tsx with real positions
-  - [ ] 19.2 [Frontend] Display encrypted amounts by default (****)
-  - [ ] 19.3 [Frontend] Implement "Reveal" button to decrypt via Tongo
-  - [ ] 19.4 [Frontend] Display real decrypted collateral (wBTC)
-  - [ ] 19.5 [Frontend] Display real decrypted debt (USDC)
-  - [ ] 19.6 [Frontend] Calculate real LTV from on-chain data
-  - [ ] 19.7 [Frontend] Calculate real health factor
-  - [ ] 19.8 [Frontend] Add color-coded risk indicators
-  - _Requirements: AC-6.1, AC-6.2, AC-6.3, AC-6.4, AC-6.5, AC-6.6_
-
-- [ ] 20. [Frontend] Real-Time Position Updates
-  - [ ] 20.1 [Frontend] Add position polling (every 10s)
-  - [ ] 20.2 [Frontend] Update UI when transactions confirm
-  - [ ] 20.3 [Frontend] Add manual refresh button
-  - [ ] 20.4 [Frontend] Show pending state during confirmation
-  - [ ] 20.5 [Frontend] Add error handling for failed fetches
-  - _Requirements: AC-6.7, NFR-5.2, NFR-5.4_
-
-- [ ] 21. [Frontend] Position Decryption
-  - [ ] 21.1 [Frontend] Implement decryptPosition() via Tongo
-  - [ ] 21.2 [Frontend] Add loading state during decryption
-  - [ ] 21.3 [Frontend] Cache decrypted values (invalidate on tx)
-  - [ ] 21.4 [Frontend] Handle decryption errors gracefully
-  - [ ] 21.5 [Frontend] Add privacy indicator for encrypted data
-  - _Requirements: AC-6.2, AC-6.3_
-
----
-
-## Phase 9: NGN Off-ramp & Exit (Day 8)
-
-- [ ] 22. [Frontend] Update Exit Tab
-  - [ ] 22.1 [Frontend] Update exit-tab.tsx with real USDC balance
-  - [ ] 22.2 [Frontend] Integrate CoinGecko API for live USDC/NGN rate
-  - [ ] 22.3 [Frontend] Calculate estimated NGN from real rate
-  - [ ] 22.4 [Frontend] Add links to real P2P platforms
-  - [ ] 22.5 [Frontend] Add disclaimer about external off-ramp
-  - [ ] 22.6 [Frontend] Test exchange rate fetching
-  - _Requirements: AC-7.1, AC-7.2, AC-7.3, AC-7.4, AC-7.5_
-
----
-
-## Phase 10: Testing & Polish (Days 9-10)
-
-- [ ] 23. [Frontend] End-to-End Testing on Sepolia
-  - [ ] 23.1 [Frontend] Test: Connect Xverse wallet → View dashboard
-  - [ ] 23.2 [Frontend] Test: Bridge BTC via Atomiq SDK → Confirm wBTC
-  - [ ] 23.3 [Frontend] Test: Approve → Shield → Confirm deposit
-  - [ ] 23.4 [Frontend] Test: Check capacity → Borrow → Confirm
-  - [ ] 23.5 [Frontend] Test: Enable auto-loop → Execute → Verify
-  - [ ] 23.6 [Frontend] Test: Fetch → Decrypt → Display position
-  - [ ] 23.7 [Frontend] Test error scenarios (insufficient balance, etc.)
-  - [ ] 23.8 [Frontend] Test on Chrome, Firefox, Brave
-  - _Requirements: NFR-5.10_
-
-- [ ] 24. [Frontend] Transaction Error Handling
-  - [ ] 24.1 [Frontend] Add user-friendly error messages
-  - [ ] 24.2 [Frontend] Implement retry logic for failed transactions
-  - [ ] 24.3 [Frontend] Add transaction timeout handling
-  - [ ] 24.4 [Frontend] Display gas estimation errors clearly
-  - [ ] 24.5 [Frontend] Add support links for issues
-  - _Requirements: TR-4.20, TR-4.25, NFR-5.8_
-
-- [ ] 25. [Frontend] Performance Optimization
-  - [ ] 25.1 [Frontend] Implement caching for frequent data
-  - [ ] 25.2 [Frontend] Add loading skeletons for blockchain fetches
-  - [ ] 25.3 [Frontend] Optimize transaction polling intervals
-  - [ ] 25.4 [Frontend] Add optimistic UI updates
-  - [ ] 25.5 [Frontend] Test with slow network conditions
-  - _Requirements: NFR-5.1, NFR-5.2, NFR-5.3, NFR-5.4_
-
----
-
-## Phase 11: Documentation & Deployment (Day 10)
-
-- [ ] 26. [Frontend] Documentation
-  - [ ] 26.1 [Frontend] Write comprehensive README with setup
-  - [ ] 26.2 [Frontend] Document all environment variables
-  - [ ] 26.3 [Frontend] Add architecture diagram with real integrations
-  - [ ] 26.4 [Contract] Document deployed addresses and ABIs
-  - [ ] 26.5 [Frontend] Create user guide with screenshots
-  - [ ] 26.6 [Frontend] Add troubleshooting section
-
-- [ ] 27. [Frontend] Deployment to Vercel
-  - [ ] 27.1 [Frontend] Configure Vercel with environment variables
-  - [ ] 27.2 [Frontend] Deploy to Vercel production
-  - [ ] 27.3 [Frontend] Test deployed app on Sepolia
-  - [ ] 27.4 [Frontend] Verify all features work in production
-  - [ ] 27.5 [Frontend] Set up error monitoring (Sentry)
-  - [ ] 27.6 [Frontend] Configure custom domain (if available)
-
-- [ ] 28. [Frontend] Final Production Checks
-  - [ ] 28.1 [Frontend] Verify all contract addresses in production
-  - [ ] 28.2 [Frontend] Test complete flow on production URL
-  - [ ] 28.3 [Frontend] Verify all Voyager links work
-  - [ ] 28.4 [Frontend] Check mobile responsiveness on devices
-  - [ ] 28.5 [Frontend] Run security check (no exposed keys)
-  - [ ] 28.6 [Frontend] Verify all external links work
-
----
-
-## Implementation Notes
-
-### Priorities
-
-1. **Xverse Wallet** (Phase 2) - Foundation for BTC + Starknet
-2. **Atomiq Bridge** (Phase 3) - Core BTC bridging feature
-3. **Tongo Privacy** (Phase 4) - Core differentiator
-4. **Vault Contract** (Phase 5) - Central smart contract with mock oracle
-5. **Vault Integration** (Phase 6) - Connect frontend to contract
-6. **Leverage Loop** (Phase 7) - Simplified loop (no DEX)
-7. **Position Management** (Phase 8) - User experience
-8. **Testing & Deployment** (Phases 10-11) - Production readiness
-
-### Key Differences from Original PRD
-
-**Using Xverse Wallet**:
-- Primary wallet for BTC + Starknet support
-- Replaces Argent/Braavos for BTC-native users
-
-**Using Atomiq SDK**:
-- In-app bridge widget (not redirect)
-- Real BTC → wBTC bridging via SDK
-
-**Custom Vault (No Vesu)**:
-- Mock USDC pool for borrowing
-- Mock oracle for BTC price/LTV
-- Faster MVP implementation
-
-**Simplified Leverage Loop**:
-- Ekubo DEX integration
-- Simple: borrow → re-deposit
-- Faster MVP implementation
-
-### No Mocks or Simulations
-
-Every feature uses real protocols:
-- Real Xverse wallet connections
-- Real Atomiq SDK for bridging
-- Real wBTC token on Sepolia
-- Real Tongo encryption/decryption
-- Real vault contract (with mock oracle)
-- Real transaction hashes and confirmations
-
-### Testing Strategy
-
-- Test each integration on Sepolia as implemented
-- Use real testnet tokens (wBTC, USDC)
-- Verify transactions on Voyager explorer
-- Test with Xverse wallet
-- Test error scenarios and edge cases
+This implementation plan transforms the existing Next.js frontend into a production-ready application with real blockchain integrations. The application already has complete UI components; implementation focuses on integrating live protocols (Tongo, Vesu, Autoswap, Atomiq) on both Starknet Sepolia and Mainnet.
+
+**Key Principle**: No mocks or simulations. All features use real smart contracts, real tokens, and real protocol SDKs.
+
+## Tasks
+
+- [-] 1. Network Configuration & Environment Setup
+  - Create network-specific configuration system for Sepolia and Mainnet
+  - Add environment variables for both networks (RPC URLs, contract addresses)
+  - Implement network selector component in navbar
+  - Create `useNetwork` hook for network switching
+  - Update constants.ts to support dual network configuration
+  - _Requirements: TR-4.1, TR-4.9, TR-4.10, TR-4.26, TR-4.27, AC-1.4_
+
+- [ ] 2. Wallet Integration Enhancement
+  - [ ] 2.1 Enhance wallet connection for multi-wallet support
+    - Test and verify Xverse wallet compatibility
+    - Add wallet detection and connection error handling
+    - Implement wallet reconnection on page reload
+    - _Requirements: AC-1.1, AC-1.2, AC-1.3, AC-1.5, TR-4.7_
+
+  - [ ]* 2.2 Write unit tests for wallet connection
+    - Test wallet connect/disconnect flows
+    - Test network detection and validation
+    - Test error handling for wrong networks
+    - _Requirements: AC-1.1, AC-1.2, AC-1.5_
+
+- [ ] 3. Atomiq Bridge Integration
+  - [ ] 3.1 Implement Atomiq SDK integration
+    - Complete useAtomiq hook with real SDK calls
+    - Implement bridge transaction initiation
+    - Add transaction status polling
+    - _Requirements: AC-2.1, AC-2.2, AC-2.3, AC-2.4, TR-4.8_
+
+  - [ ] 3.2 Create BridgeWidget component
+    - Build bridge UI with amount input and network selector
+    - Display bridge transaction status and confirmations
+    - Show estimated completion time
+    - Add link to Voyager explorer for bridge transactions
+    - _Requirements: AC-2.2, AC-2.4, AC-2.7_
+
+  - [ ] 3.3 Integrate bridge widget into Dashboard tab
+    - Add bridge widget to dashboard quick actions
+    - Connect to real Atomiq SDK
+    - Display wBTC arrival confirmation
+    - _Requirements: AC-2.5, AC-2.7_
+
+  - [ ]* 3.4 Write unit tests for Atomiq integration
+    - Test bridge initiation with valid parameters
+    - Test status polling and updates
+    - Test error handling for failed bridges
+    - _Requirements: AC-2.1, AC-2.3, AC-2.4_
+
+- [ ] 4. Tongo Privacy Layer Integration
+  - [ ] 4.1 Implement Tongo SDK integration
+    - Create `useTongo` hook with real Tongo SDK
+    - Implement Tongo account creation
+    - Add fund (shield) functionality
+    - Implement balance decryption
+    - _Requirements: AC-3.1, AC-3.6, TR-4.14_
+
+  - [ ] 4.2 Update Deposit tab with real Tongo integration
+    - Fetch real wBTC balance from wallet
+    - Implement approve + fund two-step process
+    - Display real transaction hashes with Voyager links
+    - Show transaction status (pending, confirmed, failed)
+    - _Requirements: AC-3.2, AC-3.3, AC-3.4, AC-3.5, AC-3.7_
+
+  - [ ]* 4.3 Write property test for Tongo encryption
+    - **Property 1: Encryption round trip**
+    - *For any* valid balance amount, encrypting then decrypting should produce the original value
+    - **Validates: Requirements AC-3.6**
+
+  - [ ]* 4.4 Write unit tests for Tongo integration
+    - Test account creation
+    - Test fund operation with valid amounts
+    - Test balance decryption
+    - Test error handling for invalid operations
+    - _Requirements: AC-3.1, AC-3.4, AC-3.6_
+
+- [ ] 5. Vesu Lending Protocol Integration
+  - [ ] 5.1 Implement Vesu SDK integration
+    - Create `useVesu` hook with real Vesu SDK
+    - Implement supply (deposit collateral) function
+    - Implement borrow function
+    - Add position query functionality
+    - Implement borrowing capacity calculation
+    - _Requirements: AC-4.1, AC-4.2, AC-4.6, AC-4.7, TR-4.12, TR-4.16, TR-4.17_
+
+  - [ ] 5.2 Update Borrow tab with real Vesu integration
+    - Fetch real borrowing capacity from Vesu pool
+    - Display actual LTV ratios from Vesu
+    - Validate borrow amounts against pool limits
+    - Execute supply and borrow via Vesu SDK
+    - Show real transaction hashes and status
+    - _Requirements: AC-4.3, AC-4.4, AC-4.5, AC-4.8, AC-4.9_
+
+  - [ ] 5.3 Integrate Vesu with Tongo for private borrows
+    - Wrap Vesu borrow operations with Tongo shielding
+    - Transfer borrowed USDC as shielded balance
+    - Maintain privacy for debt amounts
+    - _Requirements: AC-4.8, TR-4.18_
+
+  - [ ]* 5.4 Write property test for Vesu supply operations
+    - **Property 2: Supply increases collateral**
+    - *For any* valid wBTC amount, supplying to Vesu should increase user's collateral balance by that amount
+    - **Validates: Requirements AC-4.6**
+
+  - [ ]* 5.5 Write property test for Vesu borrow operations
+    - **Property 3: Borrow within capacity**
+    - *For any* borrow amount within capacity, borrowing should succeed and increase debt by that amount
+    - **Validates: Requirements AC-4.7, AC-4.5**
+
+  - [ ]* 5.6 Write unit tests for Vesu integration
+    - Test supply operation with valid amounts
+    - Test borrow operation within limits
+    - Test borrowing capacity calculation
+    - Test error handling for exceeding limits
+    - _Requirements: AC-4.3, AC-4.4, AC-4.5, AC-4.6, AC-4.7_
+
+- [ ] 6. Autoswap DEX Aggregator Integration
+  - [ ] 6.1 Implement Autoswap SDK integration
+    - Create `useAutoswap` hook with real Autoswap SDK
+    - Implement swap quote fetching
+    - Implement swap execution (USDC → wBTC)
+    - Add slippage tolerance configuration
+    - _Requirements: AC-5.2, AC-5.4, TR-4.5_
+
+  - [ ]* 6.2 Write property test for swap operations
+    - **Property 4: Swap output within slippage**
+    - *For any* valid swap amount, the output should be within the specified slippage tolerance of the quote
+    - **Validates: Requirements AC-5.2**
+
+  - [ ]* 6.3 Write unit tests for Autoswap integration
+    - Test quote fetching for valid pairs
+    - Test swap execution with valid parameters
+    - Test slippage tolerance handling
+    - Test error handling for failed swaps
+    - _Requirements: AC-5.2, AC-5.4_
+
+- [ ] 7. Leverage Loop Implementation
+  - [ ] 7.1 Implement leverage loop orchestration
+    - Create leverage loop function in useVesu hook
+    - Implement: borrow USDC → swap to wBTC → re-supply to Vesu
+    - Calculate projected LTV and liquidation price
+    - Display multi-step progress with transaction hashes
+    - _Requirements: AC-5.1, AC-5.2, AC-5.5, AC-5.7_
+
+  - [ ] 7.2 Update Borrow tab with leverage controls
+    - Add leverage slider (1x-3x) with real calculations
+    - Implement "Enable Auto-Loop Leverage" checkbox
+    - Show projected LTV and liquidation price from Vesu
+    - Execute leverage loop with privacy via Tongo
+    - _Requirements: AC-5.1, AC-5.5, AC-5.6, AC-5.8_
+
+  - [ ]* 7.3 Write property test for leverage loop
+    - **Property 5: Leverage increases collateral**
+    - *For any* leverage multiplier between 1x and 3x, executing the loop should increase total collateral proportionally
+    - **Validates: Requirements AC-5.2, AC-5.8**
+
+  - [ ]* 7.4 Write unit tests for leverage loop
+    - Test leverage calculation for different multipliers
+    - Test multi-step execution (borrow → swap → supply)
+    - Test error handling for failed steps
+    - Test transaction state management
+    - _Requirements: AC-5.1, AC-5.2, AC-5.5, AC-5.7_
+
+- [ ] 8. Position Management & Decryption
+  - [ ] 8.1 Implement real position fetching from Vesu
+    - Query Vesu pool for user's supplied collateral
+    - Query Vesu pool for user's borrowed amounts
+    - Fetch LTV ratio and health factor from Vesu
+    - Calculate liquidation threshold
+    - _Requirements: AC-6.1, AC-6.2, AC-6.6, AC-6.7_
+
+  - [ ] 8.2 Integrate Tongo decryption in Positions tab
+    - Display encrypted amounts by default (****)
+    - Implement "Reveal Position" button with Tongo decryption
+    - Show decrypted collateral and debt balances
+    - Display real-time health factor with color coding
+    - Update position data after transactions
+    - _Requirements: AC-6.3, AC-6.4, AC-6.5, AC-6.8_
+
+  - [ ] 8.3 Add network-aware position display
+    - Filter positions by selected network
+    - Display correct explorer links per network
+    - Handle network switching gracefully
+    - _Requirements: AC-6.9, TR-4.27_
+
+  - [ ]* 8.4 Write property test for position calculations
+    - **Property 6: LTV calculation accuracy**
+    - *For any* position with collateral and debt, the calculated LTV should match (debt / collateral) * 100
+    - **Validates: Requirements AC-6.6**
+
+  - [ ]* 8.5 Write unit tests for position management
+    - Test position fetching from Vesu
+    - Test Tongo decryption of balances
+    - Test health factor calculation
+    - Test position updates after transactions
+    - _Requirements: AC-6.1, AC-6.2, AC-6.4, AC-6.5, AC-6.6, AC-6.7_
+
+- [ ] 9. NGN Off-ramp Information Display
+  - [ ] 9.1 Implement off-ramp information in Exit tab
+    - Fetch real USDC balance available for withdrawal
+    - Integrate live USDC/NGN exchange rate API (CoinGecko)
+    - Calculate estimated NGN amount based on current rates
+    - Display links to P2P platforms (Binance P2P, Paxful, etc.)
+    - Add clear disclaimer about external off-ramp
+    - _Requirements: AC-7.1, AC-7.2, AC-7.3, AC-7.4, AC-7.5_
+
+  - [ ]* 9.2 Write unit tests for off-ramp calculations
+    - Test exchange rate fetching
+    - Test NGN amount calculation
+    - Test error handling for API failures
+    - _Requirements: AC-7.2, AC-7.3_
+
+- [ ] 10. Transaction Management & Error Handling
+  - [ ] 10.1 Enhance transaction state management
+    - Implement transaction history tracking
+    - Add transaction status polling with timeouts
+    - Display transaction progress indicators
+    - Show network-aware Voyager explorer links
+    - _Requirements: TR-4.23, TR-4.24, NFR-5.2_
+
+  - [ ] 10.2 Implement comprehensive error handling
+    - Add user-friendly error messages for common failures
+    - Implement transaction retry logic
+    - Add transaction confirmation dialogs
+    - Display gas fee estimates before transactions
+    - _Requirements: TR-4.25, TR-4.31, TR-4.32, NFR-5.7, NFR-5.8_
+
+  - [ ]* 10.3 Write unit tests for error handling
+    - Test error message formatting
+    - Test retry logic for failed transactions
+    - Test timeout handling
+    - _Requirements: TR-4.25, TR-4.31_
+
+- [ ] 11. Network Switching & Configuration
+  - [ ] 11.1 Implement network switching functionality
+    - Create network selector dropdown in navbar
+    - Update all contract addresses on network change
+    - Update RPC provider on network change
+    - Refresh balances and positions after switch
+    - Verify network matches user selection before transactions
+    - _Requirements: TR-4.1, TR-4.9, TR-4.27, TR-4.34_
+
+  - [ ]* 11.2 Write unit tests for network switching
+    - Test network configuration updates
+    - Test contract address updates per network
+    - Test RPC provider updates
+    - Test transaction blocking on wrong network
+    - _Requirements: TR-4.1, TR-4.27, TR-4.34_
+
+- [ ] 12. Performance Optimization & Caching
+  - [ ] 12.1 Implement data caching and refresh
+    - Cache decrypted balances with invalidation on transactions
+    - Cache Vesu pool parameters
+    - Implement position refresh interval
+    - Add loading states and skeleton loaders
+    - _Requirements: NFR-5.1, NFR-5.3, NFR-5.4_
+
+  - [ ]* 12.2 Write unit tests for caching logic
+    - Test cache invalidation on transactions
+    - Test cache expiration
+    - Test refresh intervals
+    - _Requirements: NFR-5.4_
+
+- [ ] 13. Security Enhancements
+  - [ ] 13.1 Implement security best practices
+    - Add input validation for all user inputs
+    - Implement rate limiting for API calls
+    - Add transaction amount validation
+    - Verify contract addresses before transactions
+    - _Requirements: TR-4.29, TR-4.33, TR-4.35_
+
+  - [ ]* 13.2 Write security tests
+    - Test input validation for edge cases
+    - Test contract address validation
+    - Test amount validation (min/max)
+    - _Requirements: TR-4.29_
+
+- [ ] 14. Integration Testing & E2E Flows
+  - [ ]* 14.1 Write integration tests for complete flows
+    - Test full deposit flow on Sepolia
+    - Test full borrow flow on Sepolia
+    - Test leverage loop on Sepolia
+    - Test position decryption flow
+    - _Requirements: All AC requirements_
+
+  - [ ]* 14.2 Write E2E tests for user journeys
+    - Test complete user journey: connect → bridge → deposit → borrow → view position
+    - Test network switching during operations
+    - Test error recovery scenarios
+    - _Requirements: All AC requirements, Success Metrics_
+
+- [ ] 15. Documentation & Deployment Preparation
+  - [ ] 15.1 Update environment configuration documentation
+    - Document all required environment variables for both networks
+    - Create .env.example with all variables
+    - Add setup instructions for Sepolia and Mainnet
+    - Document contract addresses and RPC endpoints
+    - _Requirements: TR-4.10, TR-4.26_
+
+  - [ ] 15.2 Prepare deployment configuration
+    - Configure Vercel environment variables for both networks
+    - Set up production RPC endpoints
+    - Verify all contract addresses are correct
+    - Test deployment on Vercel
+    - _Requirements: Success Metrics_
+
+- [ ] 16. Final Checkpoint - Production Readiness
+  - Verify all tests pass on both Sepolia and Mainnet
+  - Test complete user flow end-to-end on both networks
+  - Verify all transaction hashes link to correct explorer
+  - Confirm privacy features work correctly (Tongo encryption/decryption)
+  - Validate gas fee estimates are accurate
+  - Test error handling and recovery
+  - Ensure network switching works seamlessly
+  - Ask user if any issues or questions arise
+
+## Notes
+
+- Tasks marked with `*` are optional and can be skipped for faster MVP
+- Each task references specific requirements for traceability
+- Implementation uses real SDKs: @atomiqlabs/sdk, @fatsolutions/tongo-sdk, Vesu SDK, Autoswap SDK
+- All features must work on both Starknet Sepolia testnet AND Mainnet
+- No custom vault contract needed - use Vesu SDK directly from frontend
+- Privacy layer added via Tongo SDK wrapping Vesu operations
+- Network selector allows switching between Sepolia and Mainnet with different contract addresses

@@ -5,58 +5,125 @@
  * - Network configuration (RPC URLs, Chain IDs)
  * - Contract addresses (Vault, Tongo, Vesu, Tokens)
  * - Token metadata (decimals, symbols)
+ * 
+ * Supports both Starknet Sepolia testnet and Mainnet
  */
 
 // ============================================================================
-// Network Configuration
+// Network Types
 // ============================================================================
-
-export const NETWORK_CONFIG = {
-  rpcUrl: process.env.NEXT_PUBLIC_STARKNET_RPC_URL || '',
-  network: process.env.NEXT_PUBLIC_NETWORK || 'sepolia',
-  chainId: process.env.NEXT_PUBLIC_CHAIN_ID || 'SN_SEPOLIA',
-} as const;
 
 export const SUPPORTED_NETWORKS = ['sepolia', 'mainnet'] as const;
 export type SupportedNetwork = typeof SUPPORTED_NETWORKS[number];
 
 // ============================================================================
-// Contract Addresses (Sepolia Testnet)
+// Network Configuration (Dual Network Support)
 // ============================================================================
 
+export interface NetworkConfig {
+  rpcUrl: string;
+  chainId: string;
+  explorerUrl: string;
+  contracts: {
+    vesuPool: string;
+    tongoProtocol: string;
+    wBTC: string;
+    USDC: string;
+  };
+}
+
+export const NETWORK_CONFIGS: Record<SupportedNetwork, NetworkConfig> = {
+  sepolia: {
+    rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || '',
+    chainId: 'SN_SEPOLIA',
+    explorerUrl: 'https://sepolia.voyager.online',
+    contracts: {
+      vesuPool: process.env.NEXT_PUBLIC_SEPOLIA_VESU_POOL_ADDRESS || '',
+      tongoProtocol: process.env.NEXT_PUBLIC_SEPOLIA_TONGO_PROTOCOL_ADDRESS || '',
+      wBTC: process.env.NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS || '',
+      USDC: process.env.NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS || '',
+    },
+  },
+  mainnet: {
+    rpcUrl: process.env.NEXT_PUBLIC_MAINNET_RPC_URL || '',
+    chainId: 'SN_MAIN',
+    explorerUrl: 'https://voyager.online',
+    contracts: {
+      vesuPool: process.env.NEXT_PUBLIC_MAINNET_VESU_POOL_ADDRESS || '',
+      tongoProtocol: process.env.NEXT_PUBLIC_MAINNET_TONGO_PROTOCOL_ADDRESS || '',
+      wBTC: process.env.NEXT_PUBLIC_MAINNET_WBTC_ADDRESS || '',
+      USDC: process.env.NEXT_PUBLIC_MAINNET_USDC_ADDRESS || '',
+    },
+  },
+};
+
+/**
+ * Get network configuration for a specific network
+ */
+export function getNetworkConfig(network: SupportedNetwork): NetworkConfig {
+  return NETWORK_CONFIGS[network];
+}
+
+/**
+ * Get current default network from environment
+ */
+export function getDefaultNetwork(): SupportedNetwork {
+  const envNetwork = process.env.NEXT_PUBLIC_DEFAULT_NETWORK || 'sepolia';
+  return SUPPORTED_NETWORKS.includes(envNetwork as SupportedNetwork) 
+    ? (envNetwork as SupportedNetwork) 
+    : 'sepolia';
+}
+
+// ============================================================================
+// Legacy Support (Deprecated - use getNetworkConfig instead)
+// ============================================================================
+
+export const NETWORK_CONFIG = {
+  rpcUrl: process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || '',
+  network: 'sepolia' as const,
+  chainId: 'SN_SEPOLIA',
+};
+
 export const CONTRACT_ADDRESSES = {
-  // PayMejor Vault Contract
-  vault: process.env.NEXT_PUBLIC_VAULT_ADDRESS || '',
-  
-  // Tongo Protocol (Privacy Layer)
-  tongoProtocol: process.env.NEXT_PUBLIC_TONGO_PROTOCOL_ADDRESS || '',
-  
-  // Vesu Lending Pool
-  vesuPool: process.env.NEXT_PUBLIC_VESU_POOL_ADDRESS || '',
-  
-  // Token Addresses
-  wBTC: process.env.NEXT_PUBLIC_WBTC_ADDRESS || '',
-  USDC: process.env.NEXT_PUBLIC_USDC_ADDRESS || '',
+  vault: '', // No custom vault - using Vesu directly
+  tongoProtocol: process.env.NEXT_PUBLIC_SEPOLIA_TONGO_PROTOCOL_ADDRESS || '',
+  vesuPool: process.env.NEXT_PUBLIC_SEPOLIA_VESU_POOL_ADDRESS || '',
+  wBTC: process.env.NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS || '',
+  USDC: process.env.NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS || '',
 } as const;
 
 // ============================================================================
 // Token Metadata
 // ============================================================================
 
-export const TOKEN_METADATA = {
+export interface TokenMetadata {
+  symbol: string;
+  name: string;
+  decimals: number;
+}
+
+export const TOKEN_METADATA: Record<string, TokenMetadata> = {
   wBTC: {
     symbol: 'wBTC',
     name: 'Wrapped Bitcoin',
     decimals: 8,
-    address: CONTRACT_ADDRESSES.wBTC,
   },
   USDC: {
     symbol: 'USDC',
     name: 'USD Coin',
     decimals: 6,
-    address: CONTRACT_ADDRESSES.USDC,
   },
 } as const;
+
+/**
+ * Get token address for a specific network
+ */
+export function getTokenAddress(
+  token: 'wBTC' | 'USDC',
+  network: SupportedNetwork
+): string {
+  return NETWORK_CONFIGS[network].contracts[token];
+}
 
 // ============================================================================
 // Protocol Parameters
@@ -83,20 +150,24 @@ export const PROTOCOL_PARAMS = {
 // Explorer URLs
 // ============================================================================
 
-export const EXPLORER_URLS = {
-  sepolia: 'https://sepolia.voyager.online',
-  mainnet: 'https://voyager.online',
-} as const;
-
-export function getExplorerUrl(network: SupportedNetwork = 'sepolia'): string {
-  return EXPLORER_URLS[network];
+/**
+ * Get explorer URL for a specific network
+ */
+export function getExplorerUrl(network: SupportedNetwork): string {
+  return NETWORK_CONFIGS[network].explorerUrl;
 }
 
-export function getTxUrl(txHash: string, network: SupportedNetwork = 'sepolia'): string {
+/**
+ * Get transaction URL for a specific network
+ */
+export function getTxUrl(txHash: string, network: SupportedNetwork): string {
   return `${getExplorerUrl(network)}/tx/${txHash}`;
 }
 
-export function getContractUrl(address: string, network: SupportedNetwork = 'sepolia'): string {
+/**
+ * Get contract URL for a specific network
+ */
+export function getContractUrl(address: string, network: SupportedNetwork): string {
   return `${getExplorerUrl(network)}/contract/${address}`;
 }
 
@@ -108,17 +179,24 @@ export function isValidAddress(address: string): boolean {
   return address.startsWith('0x') && address.length === 66;
 }
 
-export function isNetworkConfigured(): boolean {
-  return Boolean(NETWORK_CONFIG.rpcUrl);
+/**
+ * Check if a specific network is configured
+ */
+export function isNetworkConfigured(network: SupportedNetwork): boolean {
+  const config = NETWORK_CONFIGS[network];
+  return Boolean(config.rpcUrl);
 }
 
-export function areContractsConfigured(): boolean {
+/**
+ * Check if contracts are configured for a specific network
+ */
+export function areContractsConfigured(network: SupportedNetwork): boolean {
+  const config = NETWORK_CONFIGS[network];
   return Boolean(
-    CONTRACT_ADDRESSES.vault &&
-    CONTRACT_ADDRESSES.tongoProtocol &&
-    CONTRACT_ADDRESSES.vesuPool &&
-    CONTRACT_ADDRESSES.wBTC &&
-    CONTRACT_ADDRESSES.USDC
+    config.contracts.vesuPool &&
+    config.contracts.tongoProtocol &&
+    config.contracts.wBTC &&
+    config.contracts.USDC
   );
 }
 
@@ -127,15 +205,21 @@ export function areContractsConfigured(): boolean {
 // ============================================================================
 
 export const REQUIRED_ENV_VARS = [
-  'NEXT_PUBLIC_STARKNET_RPC_URL',
-  'NEXT_PUBLIC_NETWORK',
-  'NEXT_PUBLIC_CHAIN_ID',
+  'NEXT_PUBLIC_SEPOLIA_RPC_URL',
+  'NEXT_PUBLIC_MAINNET_RPC_URL',
 ] as const;
 
 export const OPTIONAL_ENV_VARS = [
-  'NEXT_PUBLIC_VAULT_ADDRESS',
-  'NEXT_PUBLIC_TONGO_PROTOCOL_ADDRESS',
-  'NEXT_PUBLIC_VESU_POOL_ADDRESS',
-  'NEXT_PUBLIC_WBTC_ADDRESS',
-  'NEXT_PUBLIC_USDC_ADDRESS',
+  // Sepolia
+  'NEXT_PUBLIC_SEPOLIA_VESU_POOL_ADDRESS',
+  'NEXT_PUBLIC_SEPOLIA_TONGO_PROTOCOL_ADDRESS',
+  'NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS',
+  'NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS',
+  // Mainnet
+  'NEXT_PUBLIC_MAINNET_VESU_POOL_ADDRESS',
+  'NEXT_PUBLIC_MAINNET_TONGO_PROTOCOL_ADDRESS',
+  'NEXT_PUBLIC_MAINNET_WBTC_ADDRESS',
+  'NEXT_PUBLIC_MAINNET_USDC_ADDRESS',
+  // Default network
+  'NEXT_PUBLIC_DEFAULT_NETWORK',
 ] as const;

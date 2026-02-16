@@ -28,6 +28,7 @@ export interface TokenBalances {
   wBTC: string;
   USDC: string;
   ETH: string;
+  network: 'sepolia' | 'mainnet';
 }
 
 /**

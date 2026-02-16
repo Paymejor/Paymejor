@@ -1,10 +1,15 @@
-# PayMejor - Private NGN Liquidity Vault Requirements
+# Paymejor - Private BTC-to-NGN Liquidity Engine Requirements
 
 ## 1. Overview
 
-PayMejor is a production-ready private liquidity vault that enables Lagos BTC holders to unlock NGN liquidity without exposing their Bitcoin holdings on-chain. The system integrates with live protocols on Starknet: Atomiq for trustless BTC bridging, Tongo for privacy-preserving transactions, and Vesu for decentralized lending.
+Paymejor is a production-ready private liquidity engine that enables Nigerian BTC holders (Abuja/Lagos) to unlock NGN liquidity without exposing their Bitcoin holdings on-chain. The system integrates with live protocols on Starknet: Atomiq for trustless BTC bridging, Tongo for privacy-preserving transactions, Vesu for real decentralized lending pools, and Autoswap SDK for efficient token swaps.
 
-**Production Scope**: All features must work on Starknet Sepolia testnet with real protocol integrations. No mocks or simulations.
+**Production Scope**: All features must work on **both Starknet Sepolia testnet AND Mainnet** with real protocol integrations. No mocks or simulations.
+
+**Dual Network Support**: 
+- Sepolia for development/testing (faucets for wBTC/USDC)
+- Mainnet for production demo (real Vesu pools, small transactions)
+- Network selector in UI to toggle between networks
 
 **Existing Frontend**: The application has a complete Next.js UI with 5 tabs (Dashboard, Deposit, Borrow, Positions, Exit). Implementation focuses on integrating real blockchain functionality into these existing components.
 
@@ -53,8 +58,9 @@ As a Nigerian user, I want to see how I would convert my borrowed USDC to NGN so
 **AC-2.2**: Dashboard includes bridge widget with BTC amount input
 **AC-2.3**: User can initiate bridge transaction through Atomiq SDK
 **AC-2.4**: System displays bridge transaction status (pending, confirmed, completed)
-**AC-2.5**: System verifies wBTC arrival on Starknet Sepolia testnet
+**AC-2.5**: System verifies wBTC arrival on selected network (Sepolia or Mainnet)
 **AC-2.6**: Bridge uses trustless escrow mechanism (no custodial intermediaries)
+**AC-2.7**: Bridge widget supports both Sepolia and Mainnet destinations
 
 ### 3.3 Privacy Layer Integration (US-3) - Deposit Tab
 
@@ -68,32 +74,39 @@ As a Nigerian user, I want to see how I would convert my borrowed USDC to NGN so
 
 ### 3.4 Lending Integration (US-4) - Borrow Tab
 
-**AC-4.1**: System integrates with live Vesu protocol on Sepolia testnet
-**AC-4.2**: Borrow tab displays real borrowing capacity calculated from user's shielded collateral
-**AC-4.3**: System fetches and displays actual LTV ratios from Vesu protocol
-**AC-4.4**: User can input borrow amount and system validates against real Vesu limits
-**AC-4.5**: System executes borrow transaction through PayMejor vault contract
-**AC-4.6**: Borrowed USDC is transferred as shielded balance via Tongo
-**AC-4.7**: System displays real transaction hash and updates position after confirmation
+**AC-4.1**: System integrates with live Vesu protocol on both Sepolia and Mainnet
+**AC-4.2**: System uses Vesu SDK to interact with isolated lending pools (ERC-4626 vaults)
+**AC-4.3**: Borrow tab displays real borrowing capacity from Vesu pool calculations
+**AC-4.4**: System fetches and displays actual LTV ratios from Vesu protocol
+**AC-4.5**: User can input borrow amount and system validates against real Vesu pool limits
+**AC-4.6**: System executes supply (deposit collateral) via Vesu SDK
+**AC-4.7**: System executes borrow via Vesu SDK against supplied collateral
+**AC-4.8**: Borrowed USDC is transferred as shielded balance via Tongo
+**AC-4.9**: System displays real transaction hash and updates position after confirmation
+**AC-4.10**: System uses correct Vesu pool addresses per network (Sepolia vs Mainnet)
 
 ### 3.5 Leverage Loop (US-5) - Borrow Tab
 
 **AC-5.1**: Borrow tab includes "Enable Auto-Loop Leverage" checkbox
-**AC-5.2**: When enabled, system executes: borrow USDC → swap to wBTC (Ekubo) → re-deposit
-**AC-5.3**: System uses real Ekubo DEX for USDC → wBTC swaps on Sepolia
-**AC-5.4**: Leverage slider (1x-3x) calculates real projected LTV and liquidation price
-**AC-5.5**: All loop transactions maintain privacy via Tongo protocol
-**AC-5.6**: System displays multi-step progress with real transaction hashes
+**AC-5.2**: When enabled, system executes: borrow USDC → swap to wBTC (Autoswap) → re-supply to Vesu
+**AC-5.3**: System uses Autoswap SDK for USDC → wBTC swaps (aggregates Ekubo/JediSwap)
+**AC-5.4**: Autoswap integration works on both Sepolia and Mainnet
+**AC-5.5**: Leverage slider (1x-3x) calculates real projected LTV and liquidation price from Vesu
+**AC-5.6**: All loop transactions maintain privacy via Tongo protocol
+**AC-5.7**: System displays multi-step progress with real transaction hashes
+**AC-5.8**: Loop re-supplies swapped wBTC to Vesu pool (not custom vault)
 
 ### 3.6 Position Management (US-6) - Positions Tab
 
-**AC-6.1**: Positions tab fetches real user positions from PayMejor vault contract
-**AC-6.2**: System displays encrypted collateral/debt amounts (****) by default
-**AC-6.3**: User can click "Reveal Position" to decrypt using Tongo SDK
-**AC-6.4**: System displays real decrypted collateral balance (wBTC) and debt balance (USDC)
-**AC-6.5**: System calculates and displays actual LTV ratio from on-chain data
-**AC-6.6**: System displays real health factor with color-coded risk indicators
-**AC-6.7**: Position data updates in real-time after transactions confirm on-chain
+**AC-6.1**: Positions tab fetches real user positions from Vesu protocol
+**AC-6.2**: System queries Vesu pool for user's supplied collateral and borrowed amounts
+**AC-6.3**: System displays encrypted collateral/debt amounts (****) by default via Tongo
+**AC-6.4**: User can click "Reveal Position" to decrypt using Tongo SDK
+**AC-6.5**: System displays real decrypted collateral balance (wBTC) and debt balance (USDC)
+**AC-6.6**: System calculates and displays actual LTV ratio from Vesu pool data
+**AC-6.7**: System displays real health factor from Vesu with color-coded risk indicators
+**AC-6.8**: Position data updates in real-time after transactions confirm on-chain
+**AC-6.9**: System correctly displays positions for selected network (Sepolia or Mainnet)
 
 ### 3.7 NGN Off-ramp Information (US-7) - Exit Tab
 
@@ -107,42 +120,50 @@ As a Nigerian user, I want to see how I would convert my borrowed USDC to NGN so
 
 ### 4.1 Blockchain & Network
 
-**TR-4.1**: Deploy all contracts to Starknet Sepolia testnet (production-ready for mainnet)
-**TR-4.2**: Use real testnet wBTC token (no mocks or test tokens)
-**TR-4.3**: Integrate with live Vesu testnet deployment
-**TR-4.4**: Use starknet.js v6+ for all contract interactions
-**TR-4.5**: Use Xverse SDK/connector for wallet connections
-**TR-4.6**: Use Atomiq SDK (@atomiqlabs/sdk) for BTC → wBTC bridging
+**TR-4.1**: Support both Starknet Sepolia testnet AND Mainnet with network selector
+**TR-4.2**: Use real wBTC token on both networks (no mocks or test tokens)
+**TR-4.3**: Integrate with live Vesu protocol on both Sepolia and Mainnet
+**TR-4.4**: Use Vesu SDK for all lending operations (supply, borrow, withdraw, repay)
+**TR-4.5**: Use Autoswap SDK for all token swaps (USDC → wBTC for leverage)
+**TR-4.6**: Use starknet.js v6+ for all contract interactions
+**TR-4.7**: Use Xverse SDK/connector for wallet connections
+**TR-4.8**: Use Atomiq SDK (@atomiqlabs/sdk) for BTC → wBTC bridging
+**TR-4.9**: Configure different RPC endpoints per network (Sepolia vs Mainnet)
+**TR-4.10**: Use environment variables for network-specific contract addresses
 
-### 4.2 Smart Contracts
+### 4.2 Smart Contracts & Protocol Integration
 
-**TR-4.7**: Deploy PayMejor Vault contract to Sepolia with verified source code
-**TR-4.8**: Vault contract integrates with real Tongo protocol contracts
-**TR-4.9**: Vault contract does NOT integrate with Vesu (custom vault with mock oracle)
-**TR-4.10**: Contract handles Tongo encrypted balances (ElGamal ciphertexts)
-**TR-4.11**: Contract emits events for all state changes (deposit, borrow, loop)
-**TR-4.12**: Contract includes proper access control (only position owner can act)
-**TR-4.13**: Contract includes mock USDC pool for borrowing (simple mint/faucet)
-**TR-4.14**: Contract includes mock oracle for BTC price and LTV calculations
+**TR-4.11**: NO custom vault contract needed - use Vesu SDK directly from frontend
+**TR-4.12**: Integrate with Vesu isolated lending pools (ERC-4626 standard)
+**TR-4.13**: Use Vesu's built-in oracles for BTC price and LTV calculations
+**TR-4.14**: Integrate Tongo SDK for privacy layer (shield deposits/borrows)
+**TR-4.15**: Use Vesu pool addresses from official docs per network
+**TR-4.16**: Query Vesu pools for user positions, borrowing capacity, health factor
+**TR-4.17**: Execute supply/borrow/withdraw/repay via Vesu SDK calls
+**TR-4.18**: Wrap Vesu operations with Tongo for privacy (encrypted amounts)
 
 ### 4.3 Frontend Integration
 
-**TR-4.15**: Replace mock wallet context with real Xverse wallet integration
-**TR-4.16**: Create custom hooks: useXverse, useAtomiq, useTongo, useVault
-**TR-4.17**: All tabs fetch real data from Starknet (no hardcoded values)
-**TR-4.18**: Display real transaction hashes with links to Voyager explorer
-**TR-4.19**: Handle real transaction states (pending, confirmed, failed)
-**TR-4.20**: Implement proper error handling for failed transactions
-**TR-4.21**: Use environment variables for all contract addresses and RPC URLs
+**TR-4.19**: Replace mock wallet context with real Xverse wallet integration
+**TR-4.20**: Create custom hooks: useXverse, useAtomiq, useTongo, useVesu, useAutoswap
+**TR-4.21**: Add useNetwork hook for network selection (Sepolia/Mainnet toggle)
+**TR-4.22**: All tabs fetch real data from Starknet (no hardcoded values)
+**TR-4.23**: Display real transaction hashes with links to Voyager explorer (network-aware)
+**TR-4.24**: Handle real transaction states (pending, confirmed, failed)
+**TR-4.25**: Implement proper error handling for failed transactions
+**TR-4.26**: Use environment variables for all contract addresses and RPC URLs per network
+**TR-4.27**: Network selector updates all protocol addresses dynamically
 
 ### 4.4 Security
 
-**TR-4.22**: Never expose private keys in frontend code
-**TR-4.23**: Validate all user inputs before submitting transactions
-**TR-4.24**: Use secure RPC endpoints (Infura, Alchemy, or Blast API)
-**TR-4.25**: Implement proper error messages without leaking sensitive info
-**TR-4.26**: Add transaction confirmation dialogs before executing
-**TR-4.27**: Implement rate limiting for API calls
+**TR-4.28**: Never expose private keys in frontend code
+**TR-4.29**: Validate all user inputs before submitting transactions
+**TR-4.30**: Use secure RPC endpoints per network (Infura, Alchemy, or Blast API)
+**TR-4.31**: Implement proper error messages without leaking sensitive info
+**TR-4.32**: Add transaction confirmation dialogs before executing
+**TR-4.33**: Implement rate limiting for API calls
+**TR-4.34**: Verify network matches user selection before transactions
+**TR-4.35**: Use Vesu's audited contracts (no custom lending logic)
 
 ## 5. Non-Functional Requirements
 
@@ -169,7 +190,6 @@ As a Nigerian user, I want to see how I would convert my borrowed USDC to NGN so
 
 ## 6. Out of Scope (For Initial Production Release)
 
-- Mainnet deployment (Sepolia testnet first)
 - Liquidation bot implementation
 - Multiple collateral types (only wBTC for MVP)
 - Actual NGN on/off-ramp integration (links to external platforms only)
@@ -177,8 +197,8 @@ As a Nigerian user, I want to see how I would convert my borrowed USDC to NGN so
 - Advanced position management (partial withdrawals, repayments)
 - Multi-language support
 - Historical transaction views
-- Full Vesu integration (using custom vault with mock oracle instead)
-- Ekubo DEX integration for leverage loop (simplified loop for MVP)
+- Garaga ZK verifier for proof of solvency
+- OP_CAT Bitcoin features (narrative only)
 
 ## 7. Success Metrics
 
@@ -191,21 +211,33 @@ As a Nigerian user, I want to see how I would convert my borrowed USDC to NGN so
 
 ## 8. Dependencies & Integration Points
 
-### 8.1 External Protocols (All on Sepolia Testnet)
+### 8.1 External Protocols (Sepolia Testnet AND Mainnet)
 
 - **Atomiq Bridge**: BTC → wBTC bridging
   - SDK: @atomiqlabs/sdk
-  - Docs: Check npm for Starknet chain support
+  - Docs: https://www.npmjs.com/package/@atomiqlabs/sdk
   - Integration: In-app bridge widget using SDK
+  - Networks: Both Sepolia and Mainnet
 
 - **Tongo Protocol**: Privacy layer for shielded balances
   - SDK: @fatsolutions/tongo-sdk
   - Docs: https://docs.tongo.cash/sdk/quick-start.html
+  - Networks: Both Sepolia and Mainnet
   
-- **Custom Vault**: Lending and borrowing (NO Vesu)
-  - Mock USDC pool for borrowing
-  - Mock oracle for BTC price and LTV
-  - Simple vault contract for MVP
+- **Vesu Protocol**: Real decentralized lending
+  - Docs: https://docs.vesu.xyz/developers
+  - Supply/Withdraw: https://docs.vesu.xyz/developers/interact/supply-withdraw
+  - Borrow/Repay: https://docs.vesu.xyz/developers/interact/borrow-repay
+  - Contract Addresses: https://docs.vesu.xyz/developers/contract-addresses
+  - Integration: Direct SDK calls for supply, borrow, withdraw, repay
+  - Pools: Isolated lending pools (ERC-4626 vaults)
+  - Networks: Both Sepolia and Mainnet with different pool addresses
+
+- **Autoswap SDK**: Token swaps for leverage
+  - Docs: https://github.com/BlockheaderWeb3-Community/autoswap-sdk/blob/main/lib/README.md
+  - Integration: USDC → wBTC swaps for leverage loop
+  - Aggregates: Ekubo, JediSwap, other DEXs
+  - Networks: Both Sepolia and Mainnet
 
 ### 8.2 Wallet Integration
 
@@ -235,19 +267,22 @@ The application already has:
 ### 9.2 Integration Approach
 
 Implementation will:
-1. Replace mock wallet context with real get-starknet integration
-2. Create custom hooks for each protocol (Tongo, Vesu, Ekubo)
-3. Integrate real blockchain calls into existing tab components
-4. Add transaction state management and error handling
-5. Deploy contracts and update environment variables
-6. Test end-to-end on Sepolia testnet
+1. Replace mock wallet context with real Xverse integration
+2. Add network selector for Sepolia/Mainnet toggle
+3. Create custom hooks for each protocol (Tongo, Vesu, Autoswap, Atomiq)
+4. Integrate real blockchain calls into existing tab components
+5. Add transaction state management and error handling
+6. Configure environment variables per network
+7. Test end-to-end on both Sepolia and Mainnet
 
 ### 9.3 No Mocks or Simulations
 
 All functionality must work with real protocols:
 - Real wallet connections (not mock addresses)
-- Real wBTC token on Sepolia
+- Real wBTC token on both networks
 - Real Tongo encryption/decryption
-- Real Vesu borrowing capacity calculations
-- Real Ekubo swaps for leverage
+- Real Vesu SDK for lending (supply, borrow, withdraw, repay)
+- Real Vesu pools with actual BTC collateral support
+- Real Autoswap SDK for token swaps
 - Real transaction hashes and confirmations
+- Dual network support (Sepolia + Mainnet)

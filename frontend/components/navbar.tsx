@@ -7,6 +7,7 @@ import { useWallet } from '@/lib/wallet-context'
 import { Badge } from '@/components/ui/badge'
 import { useState, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
+import { NetworkSelector } from '@/components/network-selector'
 import {
   Tooltip,
   TooltipContent,
@@ -121,35 +122,10 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           <span className="text-lg md:text-xl font-bold text-foreground">PayMeJor</span>
         </div>
 
-        {/* Right: Network indicator + Theme toggle + Wallet */}
+        {/* Right: Network selector + Theme toggle + Wallet */}
         <div className="flex items-center gap-2 md:gap-3">
-          {/* Network Indicator - Only show when connected */}
-          {isConnected && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge 
-                    variant={isCorrectNetwork ? 'default' : 'destructive'} 
-                    className="text-xs hidden sm:flex items-center gap-1"
-                  >
-                    {isCorrectNetwork ? (
-                      <CheckCircle2 className="h-3 w-3" />
-                    ) : (
-                      <AlertCircle className="h-3 w-3" />
-                    )}
-                    {getNetworkDisplay()}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    {isCorrectNetwork 
-                      ? 'Connected to the correct network' 
-                      : 'Please switch to Starknet Sepolia'}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          {/* Network Selector */}
+          <NetworkSelector />
 
           {/* Theme Toggle */}
           <Button

@@ -255,8 +255,8 @@ This implementation plan transforms the existing Next.js frontend into a product
     - Test transaction blocking on wrong network
     - _Requirements: TR-4.1, TR-4.27, TR-4.34_
 
-- [ ] 12. Performance Optimization & Caching
-  - [ ] 12.1 Implement data caching and refresh
+- [-] 12. Performance Optimization & Caching
+  - [x] 12.1 Implement data caching and refresh
     - Cache decrypted balances with invalidation on transactions
     - Cache Vesu pool parameters
     - Implement position refresh interval

@@ -13,6 +13,7 @@ import { AlertCircle, Zap, TrendingUp, ExternalLink, CheckCircle, Shield } from 
 import { Checkbox } from '@/components/ui/checkbox'
 import { useWallet } from '@/lib/wallet-context'
 import { useVesu } from '@/hooks/useVesu'
+import { useVesuPositionCache, useVesuBorrowingCapacityCache, useVesuPoolParametersCache } from '@/hooks/useVesuCache'
 import { useTongo } from '@/hooks/useTongo'
 import { useStarknet } from '@/hooks/useStarknet'
 import { useNetwork } from '@/hooks/useNetwork'
@@ -24,14 +25,29 @@ import { ProjectedPosition, LeverageLoopStep } from '@/types/vesu'
 export function BorrowTab() {
   const { address, isConnected } = useWallet()
   const { network } = useNetwork()
+  const config = getNetworkConfig(network)
+  
   const { 
     borrow, 
-    getUserPosition, 
-    getBorrowingCapacity, 
-    getPoolParameters,
     executeLeverageLoop,
     calculateProjectedPosition,
   } = useVesu()
+  
+  // Use cached data
+  const {
+    data: position,
+    refresh: refreshPosition,
+  } = useVesuPositionCache()
+  
+  const {
+    data: borrowingCapacity,
+    refresh: refreshCapacity,
+  } = useVesuBorrowingCapacityCache(config.contracts.wBTC, config.contracts.USDC)
+  
+  const {
+    data: poolParams,
+  } = useVesuPoolParametersCache()
+  
   const { fund, tongoAccount, createAccount } = useTongo()
   const { waitForTransaction } = useStarknet()
   const { executeSwap, getQuote } = useAutoswap()
@@ -43,12 +59,11 @@ export function BorrowTab() {
   const [txHash, setTxHash] = useState<string | null>(null)
   const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'confirmed' | 'failed'>('idle')
   
-  // Real data from Vesu
-  const [borrowingCapacity, setBorrowingCapacity] = useState<string>('0')
-  const [currentLTV, setCurrentLTV] = useState<number>(0)
-  const [poolInterestRate, setPoolInterestRate] = useState<number>(5)
-  const [healthFactor, setHealthFactor] = useState<number>(0)
-  const [collateralAmount, setCollateralAmount] = useState<bigint>(BigInt(0))
+  // Extract data from cached hooks
+  const currentLTV = position?.ltv || 0
+  const healthFactor = position?.healthFactor || 0
+  const collateralAmount = position?.collateral || BigInt(0)
+  const poolInterestRate = poolParams?.interestRate || 5
   
   // Leverage loop state
   const [projectedPosition, setProjectedPosition] = useState<ProjectedPosition | null>(null)
@@ -96,55 +111,11 @@ export function BorrowTab() {
   }, [isConnected, address, collateralAmount, leverageValue, autoLoop, calculateProjectedPosition])
 
   /**
-   * Fetch real borrowing capacity and position data from Vesu
-   * Requirements: AC-4.3, AC-4.4, AC-4.6, AC-4.7, TR-4.27
-   */
-  useEffect(() => {
-    if (!isConnected || !address) return
-
-    const fetchVesuData = async () => {
-      try {
-        const config = getNetworkConfig(network)
-        
-        // Get user position
-        const position = await getUserPosition(address)
-        setCollateralAmount(position.collateral)
-        setCurrentLTV(position.ltv)
-        setHealthFactor(position.healthFactor)
-        
-        // Get borrowing capacity
-        const capacity = await getBorrowingCapacity({
-          user: address,
-          collateralAsset: config.contracts.wBTC,
-          borrowAsset: config.contracts.USDC,
-        })
-        setBorrowingCapacity(capacity)
-        
-        // Get pool parameters
-        const params = await getPoolParameters()
-        setPoolInterestRate(params.interestRate)
-      } catch (err) {
-        console.error('Error fetching Vesu data:', err)
-      }
-    }
-
-    fetchVesuData()
-    
-    // Refresh data when network changes
-    const handleNetworkChange = () => {
-      fetchVesuData()
-    }
-    
-    window.addEventListener('paymejor_network_changed', handleNetworkChange)
-    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
-  }, [isConnected, address, network, getUserPosition, getBorrowingCapacity, getPoolParameters])
-
-  /**
    * Validate borrow amount against pool limits
    */
   const validateBorrowAmount = (): boolean => {
     const amount = parseFloat(borrowAmount || '0')
-    const capacity = parseFloat(borrowingCapacity) / Math.pow(10, TOKEN_METADATA.USDC.decimals)
+    const capacity = parseFloat(borrowingCapacity || '0') / Math.pow(10, TOKEN_METADATA.USDC.decimals)
     
     if (amount <= 0) {
       toast.error('Please enter a valid borrow amount')
@@ -301,11 +272,9 @@ export function BorrowTab() {
         })
       }
       
-      // Refresh position data
-      const position = await getUserPosition(address)
-      setCurrentLTV(position.ltv)
-      setHealthFactor(position.healthFactor)
-      setCollateralAmount(position.collateral)
+      // Refresh position data (cache will auto-refresh)
+      await refreshPosition()
+      await refreshCapacity()
       
     } catch (err) {
       setTxStatus('failed')
@@ -433,7 +402,7 @@ export function BorrowTab() {
               <span>Min: 100 USDC</span>
               <span>
                 Max Borrow Capacity:{' '}
-                {(parseFloat(borrowingCapacity) / Math.pow(10, TOKEN_METADATA.USDC.decimals)).toFixed(2)} USDC
+                {(parseFloat(borrowingCapacity || '0') / Math.pow(10, TOKEN_METADATA.USDC.decimals)).toFixed(2)} USDC
               </span>
             </div>
           </div>

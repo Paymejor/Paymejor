@@ -160,6 +160,10 @@ export function useStarknet(): UseStarknetReturn {
           const status = (receipt as any).execution_status || (receipt as any).status
           
           if (status === 'SUCCEEDED' || status === 'ACCEPTED_ON_L2' || status === 'ACCEPTED_ON_L1') {
+            // Find transaction type from existing state
+            const existingTx = transactions.find(tx => tx.hash === txHash)
+            const txType = existingTx?.type || 'deposit'
+            
             // Update transaction state
             setTransactions(prev =>
               prev.map(tx =>
@@ -169,9 +173,19 @@ export function useStarknet(): UseStarknetReturn {
               )
             )
             
+            // Emit cache invalidation events
+            window.dispatchEvent(new CustomEvent('paymejor_transaction_confirmed', {
+              detail: { txHash, type: txType }
+            }))
+            
+            // Emit specific event based on transaction type
+            window.dispatchEvent(new CustomEvent(`paymejor_${txType}_confirmed`, {
+              detail: { txHash }
+            }))
+            
             return {
               hash: txHash,
-              type: 'deposit', // Will be updated from existing state
+              type: txType,
               status: 'confirmed',
               timestamp: Date.now(),
               explorerUrl: getTxUrl(txHash, network),

@@ -7,12 +7,12 @@ import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { Lock, Eye, EyeOff, ExternalLink, RefreshCw } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { SkeletonPosition } from '@/components/ui/skeleton-card'
 import { useWallet } from '@/lib/wallet-context'
 import { useNetwork } from '@/hooks/useNetwork'
-import { useVesu } from '@/hooks/useVesu'
-import { useTongo } from '@/hooks/useTongo'
+import { useVesuPositionCache, useVesuPoolParametersCache } from '@/hooks/useVesuCache'
+import { useTongoDecryptedBalanceCache } from '@/hooks/useTongoCache'
 import { getNetworkConfig, TOKEN_METADATA } from '@/lib/constants'
-import { VesuPosition } from '@/types/vesu'
 
 interface Position {
   id: string
@@ -29,75 +29,114 @@ interface Position {
 export function PositionsTab() {
   const { address, isConnected } = useWallet()
   const { network } = useNetwork()
-  const { getUserPosition, getPoolParameters } = useVesu()
-  const { getBalance, decrypt } = useTongo()
+  const config = getNetworkConfig(network)
+  
+  // Use cached position data
+  const {
+    data: vesuPosition,
+    isLoading: loadingPosition,
+    error: positionError,
+    refresh: refreshPosition,
+  } = useVesuPositionCache()
+  
+  // Use cached pool parameters
+  const {
+    data: poolParams,
+    isLoading: loadingParams,
+  } = useVesuPoolParametersCache()
+  
+  // Cached decrypted balances (only fetched when user clicks reveal)
+  const {
+    data: decryptedCollateral,
+    isLoading: decryptingCollateral,
+    refresh: refreshCollateral,
+  } = useTongoDecryptedBalanceCache(config.contracts.wBTC)
+  
+  const {
+    data: decryptedDebt,
+    isLoading: decryptingDebt,
+    refresh: refreshDebt,
+  } = useTongoDecryptedBalanceCache(config.contracts.USDC)
   
   const [position, setPosition] = useState<Position | null>(null)
-  const [loadingPosition, setLoadingPosition] = useState(false)
-  const [decryptingPosition, setDecryptingPosition] = useState(false)
+  const [isDecrypted, setIsDecrypted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   /**
-   * Fetch user position from Vesu protocol
+   * Update position from cached Vesu data
    * Requirements: AC-6.1, AC-6.2, AC-6.6, AC-6.7
    */
-  const fetchPosition = async () => {
-    if (!address || !isConnected) {
+  useEffect(() => {
+    if (!vesuPosition || !poolParams) {
       setPosition(null)
       return
     }
 
-    try {
-      setLoadingPosition(true)
-      setError(null)
-
-      // Query Vesu pool for user's position
-      const vesuPosition: VesuPosition = await getUserPosition(address)
-      
-      // Get pool parameters for liquidation threshold
-      const poolParams = await getPoolParameters()
-
-      // Check if user has any position
-      if (vesuPosition.collateral === BigInt(0) && vesuPosition.debt === BigInt(0)) {
-        setPosition(null)
-        return
-      }
-
-      // Create position object with encrypted amounts
-      const newPosition: Position = {
-        id: `${network}_${address}`,
-        collateral: 'wBTC',
-        collateralAmount: null, // Encrypted by default
-        borrowed: 'USDC',
-        borrowedAmount: null, // Encrypted by default
-        ltv: vesuPosition.ltv,
-        healthFactor: vesuPosition.healthFactor,
-        isDecrypted: false,
-        liquidationThreshold: poolParams.liquidationThreshold,
-      }
-
-      setPosition(newPosition)
-    } catch (err) {
-      console.error('Error fetching position:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch position')
-    } finally {
-      setLoadingPosition(false)
+    // Check if user has any position
+    if (vesuPosition.collateral === BigInt(0) && vesuPosition.debt === BigInt(0)) {
+      setPosition(null)
+      return
     }
-  }
+
+    // Create position object
+    const newPosition: Position = {
+      id: `${network}_${address}`,
+      collateral: 'wBTC',
+      collateralAmount: null, // Will be set when decrypted
+      borrowed: 'USDC',
+      borrowedAmount: null, // Will be set when decrypted
+      ltv: vesuPosition.ltv,
+      healthFactor: vesuPosition.healthFactor,
+      isDecrypted: false,
+      liquidationThreshold: poolParams.liquidationThreshold,
+    }
+
+    setPosition(newPosition)
+  }, [vesuPosition, poolParams, network, address])
 
   /**
-   * Decrypt position using Tongo
+   * Update decrypted amounts when available
+   */
+  useEffect(() => {
+    if (!position || !isDecrypted) return
+    
+    if (decryptedCollateral && decryptedDebt) {
+      const collateralAmount = Number(decryptedCollateral.amount) / Math.pow(10, TOKEN_METADATA.wBTC.decimals)
+      const debtAmount = Number(decryptedDebt.amount) / Math.pow(10, TOKEN_METADATA.USDC.decimals)
+      
+      setPosition(prev => prev ? {
+        ...prev,
+        collateralAmount,
+        borrowedAmount: debtAmount,
+        isDecrypted: true,
+      } : null)
+    }
+  }, [decryptedCollateral, decryptedDebt, isDecrypted, position])
+
+  /**
+   * Handle position error
+   */
+  useEffect(() => {
+    if (positionError) {
+      setError(positionError.message)
+    } else {
+      setError(null)
+    }
+  }, [positionError])
+
+  /**
+   * Decrypt position using Tongo (triggers cache fetch)
    * Requirements: AC-6.3, AC-6.4, AC-6.5
    */
   const toggleDecrypt = async () => {
     if (!position || !address) return
 
     try {
-      setDecryptingPosition(true)
       setError(null)
 
-      if (position.isDecrypted) {
-        // Hide position - just toggle the flag
+      if (isDecrypted) {
+        // Hide position
+        setIsDecrypted(false)
         setPosition({
           ...position,
           collateralAmount: null,
@@ -105,58 +144,27 @@ export function PositionsTab() {
           isDecrypted: false,
         })
       } else {
-        // Decrypt position using Tongo
-        const config = getNetworkConfig(network)
-        
-        // Get encrypted balances from Tongo
-        const collateralBalance = await getBalance(config.contracts.wBTC)
-        const debtBalance = await getBalance(config.contracts.USDC)
-        
-        // Decrypt balances
-        const decryptedCollateral = await decrypt(collateralBalance)
-        const decryptedDebt = await decrypt(debtBalance)
-        
-        // Convert to human-readable amounts
-        const collateralAmount = Number(decryptedCollateral.amount) / Math.pow(10, TOKEN_METADATA.wBTC.decimals)
-        const debtAmount = Number(decryptedDebt.amount) / Math.pow(10, TOKEN_METADATA.USDC.decimals)
-        
-        setPosition({
-          ...position,
-          collateralAmount,
-          borrowedAmount: debtAmount,
-          isDecrypted: true,
-        })
+        // Decrypt position (triggers cache fetch)
+        setIsDecrypted(true)
+        await Promise.all([
+          refreshCollateral(),
+          refreshDebt(),
+        ])
       }
     } catch (err) {
       console.error('Error decrypting position:', err)
       setError(err instanceof Error ? err.message : 'Failed to decrypt position')
-    } finally {
-      setDecryptingPosition(false)
+      setIsDecrypted(false)
     }
   }
 
-  /**
-   * Fetch position on mount and when network/address changes
-   * Requirements: AC-6.8, AC-6.9, TR-4.27
-   */
-  useEffect(() => {
-    fetchPosition()
-    
-    // Refresh position when network changes
-    const handleNetworkChange = () => {
-      fetchPosition()
-    }
-    
-    window.addEventListener('paymejor_network_changed', handleNetworkChange)
-    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
-  }, [address, network, isConnected])
+  const decryptingPosition = decryptingCollateral || decryptingDebt
 
   /**
    * Get explorer URL for current network
    * Requirements: AC-6.9, TR-4.27
    */
   const getExplorerUrl = () => {
-    const config = getNetworkConfig(network)
     return config.explorerUrl
   }
 
@@ -201,15 +209,7 @@ export function PositionsTab() {
 
       {/* Loading State */}
       {loadingPosition && (
-        <Card className="text-center py-12">
-          <CardContent className="space-y-4">
-            <Spinner className="h-12 w-12 mx-auto" />
-            <h3 className="text-lg font-semibold">Loading Position...</h3>
-            <p className="text-muted-foreground">
-              Fetching your position from Vesu protocol on {network}
-            </p>
-          </CardContent>
-        </Card>
+        <SkeletonPosition />
       )}
 
       {/* No Wallet Connected */}
@@ -235,11 +235,11 @@ export function PositionsTab() {
               Start by depositing collateral and borrowing USDC to create your first position.
             </p>
             <Button 
-              onClick={fetchPosition}
+              onClick={refreshPosition}
               variant="outline"
               className="mt-4"
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
+              <RefreshCw className={`mr-2 h-4 w-4 ${loadingPosition ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </CardContent>
@@ -354,12 +354,12 @@ export function PositionsTab() {
                 </Button>
 
                 <Button
-                  onClick={fetchPosition}
+                  onClick={refreshPosition}
                   disabled={loadingPosition}
                   variant="secondary"
                   className="w-full"
                 >
-                  <RefreshCw className="mr-2 h-4 w-4" />
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loadingPosition ? 'animate-spin' : ''}`} />
                   Refresh Position
                 </Button>
 

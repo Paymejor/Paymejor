@@ -122,23 +122,23 @@ This implementation plan integrates real blockchain functionality into the exist
 
 ## Phase 5: Cairo Vault Contract (Days 4-6)
 
-- [ ] 12. [Contract] Set Up Cairo Project
-  - [ ] 12.1 [Contract] Initialize Scarb project for PayMejor Vault
-  - [ ] 12.2 [Contract] Add dependencies: Tongo interfaces, OpenZeppelin
-  - [ ] 12.3 [Contract] Define Position struct with encrypted fields
-  - [ ] 12.4 [Contract] Set up storage with LegacyMap for positions
-  - [ ] 12.5 [Contract] Add initialization with Tongo protocol address
+- [x] 12. [Contract] Set Up Cairo Project
+  - [x] 12.1 [Contract] Initialize Scarb project for PayMejor Vault
+  - [x] 12.2 [Contract] Add dependencies: Tongo interfaces, OpenZeppelin
+  - [x] 12.3 [Contract] Define Position struct with encrypted fields
+  - [x] 12.4 [Contract] Set up storage with LegacyMap for positions
+  - [x] 12.5 [Contract] Add initialization with Tongo protocol address
   - _Requirements: TR-4.7, TR-4.8_
 
-- [ ] 13. [Contract] Implement Core Vault Functions
-  - [ ] 13.1 [Contract] Implement deposit() calling Tongo.fund()
-  - [ ] 13.2 [Contract] Implement mock USDC pool (simple mint/faucet)
-  - [ ] 13.3 [Contract] Implement mock oracle for BTC price
-  - [ ] 13.4 [Contract] Implement borrow() with mock LTV calculation
-  - [ ] 13.5 [Contract] Implement get_position() view function
-  - [ ] 13.6 [Contract] Implement get_borrowing_capacity() view
-  - [ ] 13.7 [Contract] Add events for state changes
-  - [ ] 13.8 [Contract] Add access control (owner only)
+- [x] 13. [Contract] Implement Core Vault Functions
+  - [x] 13.1 [Contract] Implement deposit() calling Tongo.fund()
+  - [x] 13.2 [Contract] Implement mock USDC pool (simple mint/faucet)
+  - [x] 13.3 [Contract] Implement mock oracle for BTC price
+  - [x] 13.4 [Contract] Implement borrow() with mock LTV calculation
+  - [x] 13.5 [Contract] Implement get_position() view function
+  - [x] 13.6 [Contract] Implement get_borrowing_capacity() view
+  - [x] 13.7 [Contract] Add events for state changes
+  - [x] 13.8 [Contract] Add access control (owner only)
   - _Requirements: TR-4.9, TR-4.10, TR-4.11, TR-4.12, TR-4.13, TR-4.14_
 
 - [ ] 14. [Contract] Implement Simple Leverage Loop

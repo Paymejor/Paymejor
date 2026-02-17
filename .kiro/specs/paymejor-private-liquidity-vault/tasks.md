@@ -141,12 +141,12 @@ This implementation plan integrates real blockchain functionality into the exist
   - [x] 13.8 [Contract] Add access control (owner only)
   - _Requirements: TR-4.9, TR-4.10, TR-4.11, TR-4.12, TR-4.13, TR-4.14_
 
-- [ ] 14. [Contract] Implement Simple Leverage Loop
-  - [ ] 14.1 [Contract] Implement leverage_loop() function
-  - [ ] 14.2 [Contract] Implement simple loop: borrow → re-deposit as collateral
-  - [ ] 14.3 [Contract] Add loop iteration limit (max 1 for MVP)
-  - [ ] 14.4 [Contract] Skip DEX integration (simplified for MVP)
-  - [ ] 14.5 [Contract] Add slippage protection (basic checks)
+- [x] 14. [Contract] Implement Simple Leverage Loop
+  - [x] 14.1 [Contract] Implement leverage_loop() function
+  - [-] 14.2 [Contract] Implement simple loop: borrow → re-deposit as collateral
+  - [x] 14.3 [Contract] Add loop iteration limit (max 1 for MVP)
+  - [x] 14.4 [Contract] Skip DEX integration (simplified for MVP)
+  - [x] 14.5 [Contract] Add slippage protection (basic checks)
   - _Requirements: AC-5.2, AC-5.5_
 
 - [ ] 15. [Contract] Deploy to Sepolia

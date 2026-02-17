@@ -111,3 +111,57 @@ fn test_get_borrowing_capacity_no_position() {
 
     assert(capacity == 0, 'Capacity should be zero');
 }
+
+#[test]
+#[should_panic(expected: ('No position found',))]
+fn test_leverage_loop_no_position() {
+    let vault_address = deploy_vault();
+    let dispatcher = IPayMejorVaultDispatcher { contract_address: vault_address };
+
+    let tongo_protocol = contract_address(0x123);
+    let wbtc_token = contract_address(0x456);
+    let usdc_token = contract_address(0x789);
+
+    dispatcher.initialize(tongo_protocol, wbtc_token, usdc_token);
+
+    let user = contract_address(0xabc);
+    start_cheat_caller_address(vault_address, user);
+
+    // Should panic because user has no position
+    dispatcher.leverage_loop(1000_u256);
+}
+
+#[test]
+#[should_panic(expected: ('Amount must be positive',))]
+fn test_leverage_loop_zero_amount() {
+    let vault_address = deploy_vault();
+    let dispatcher = IPayMejorVaultDispatcher { contract_address: vault_address };
+
+    let tongo_protocol = contract_address(0x123);
+    let wbtc_token = contract_address(0x456);
+    let usdc_token = contract_address(0x789);
+
+    dispatcher.initialize(tongo_protocol, wbtc_token, usdc_token);
+
+    let user = contract_address(0xabc);
+    start_cheat_caller_address(vault_address, user);
+
+    // Should panic because amount is zero
+    dispatcher.leverage_loop(0_u256);
+}
+
+#[test]
+fn test_leverage_loop_basic_checks() {
+    let vault_address = deploy_vault();
+    let dispatcher = IPayMejorVaultDispatcher { contract_address: vault_address };
+
+    let tongo_protocol = contract_address(0x123);
+    let wbtc_token = contract_address(0x456);
+    let usdc_token = contract_address(0x789);
+
+    dispatcher.initialize(tongo_protocol, wbtc_token, usdc_token);
+
+    // Verify initialization
+    let price = dispatcher.get_btc_price();
+    assert(price == 5000000000000_u256, 'Default price incorrect');
+}

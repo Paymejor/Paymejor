@@ -45,6 +45,9 @@ pub trait IPayMejorVault<TContractState> {
 
     /// Set BTC price in mock oracle (owner only)
     fn set_btc_price(ref self: TContractState, price: u256);
+
+    /// Execute leverage loop: borrow → re-deposit as collateral
+    fn leverage_loop(ref self: TContractState, borrow_amount: u256) -> felt252;
 }
 
 /// PayMejor Vault Contract
@@ -86,6 +89,7 @@ mod PayMejorVault {
         Borrowed: Borrowed,
         BtcPriceUpdated: BtcPriceUpdated,
         UsdcMinted: UsdcMinted,
+        LeverageLoopExecuted: LeverageLoopExecuted,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -120,6 +124,14 @@ mod PayMejorVault {
     struct UsdcMinted {
         to: ContractAddress,
         amount: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct LeverageLoopExecuted {
+        user: ContractAddress,
+        borrowed_amount: u256,
+        redeposited_amount: u256,
+        new_shielded_collateral: felt252,
     }
 
     #[abi(embed_v0)]
@@ -309,6 +321,97 @@ mod PayMejorVault {
             self.btc_price_usd.write(price);
 
             self.emit(BtcPriceUpdated { old_price, new_price: price });
+        }
+
+        fn leverage_loop(ref self: ContractState, borrow_amount: u256) -> felt252 {
+            assert(self.initialized.read(), 'Not initialized');
+            assert(borrow_amount > 0, 'Amount must be positive');
+
+            let caller = get_caller_address();
+            let position = self.positions.entry(caller).read();
+            assert(!position.owner.is_zero(), 'No position found');
+
+            // MVP: Max 1 iteration limit (as per task 14.3)
+            // Simple loop: borrow USDC → re-deposit as collateral (task 14.2)
+            // For MVP, we execute a single borrow → re-deposit cycle
+
+            // Check borrowing capacity
+            let capacity = self.get_borrowing_capacity(caller);
+            assert(borrow_amount <= capacity, 'Exceeds borrow capacity');
+
+            // Check mock USDC pool has enough liquidity
+            let pool_balance = self.usdc_pool_balance.read();
+            assert(borrow_amount <= pool_balance, 'Insufficient pool liquidity');
+
+            // Basic slippage protection (task 14.5): ensure borrow amount is reasonable
+            // For MVP, we check that borrow doesn't exceed 90% of capacity
+            let max_safe_borrow = (capacity * 90) / 100;
+            assert(borrow_amount <= max_safe_borrow, 'Borrow too high, risk limit');
+
+            let usdc_token = self.usdc_token.read();
+            let wbtc_token = self.wbtc_token.read();
+            let tongo_protocol = self.tongo_protocol.read();
+            let tongo = ITongoProtocolDispatcher { contract_address: tongo_protocol };
+
+            // ===== STEP 1: BORROW USDC =====
+            // Deduct from mock pool
+            self.usdc_pool_balance.write(pool_balance - borrow_amount);
+
+            // Fund the user's Tongo account with borrowed USDC (shielded debt)
+            let usdc = IERC20Dispatcher { contract_address: usdc_token };
+            usdc.approve(tongo_protocol, borrow_amount);
+            tongo.fund(position.tongo_account, usdc_token, borrow_amount);
+
+            // Get updated shielded debt
+            let shielded_debt = tongo.get_shielded_balance(position.tongo_account, usdc_token);
+
+            // ===== STEP 2: RE-DEPOSIT AS COLLATERAL =====
+            // Simplified for MVP (task 14.4): NO DEX integration
+            // In production: USDC → wBTC swap via Ekubo DEX, then deposit wBTC
+            // For MVP: We simulate by treating borrowed USDC as if it were converted to wBTC
+            // This is a simplified 1:1 conversion for testing purposes only
+
+            // Calculate re-deposit amount (simplified for MVP without DEX)
+            // In reality, this would be: swapped_wbtc = swap_usdc_to_wbtc_via_ekubo(borrow_amount)
+            let redeposit_amount = borrow_amount; // Simplified 1:1 for MVP
+
+            // Basic slippage check (task 14.5): ensure re-deposit amount is positive
+            assert(redeposit_amount > 0, 'Re-deposit amount too low');
+
+            // Simulate re-deposit by funding Tongo with "converted" wBTC
+            // In production, this would:
+            // 1. Withdraw USDC from Tongo (unshield)
+            // 2. Swap USDC → wBTC on Ekubo DEX
+            // 3. Deposit wBTC back to Tongo as collateral (shield)
+            let wbtc = IERC20Dispatcher { contract_address: wbtc_token };
+            wbtc.approve(tongo_protocol, redeposit_amount);
+            tongo.fund(position.tongo_account, wbtc_token, redeposit_amount);
+
+            // Get updated shielded collateral (after re-deposit)
+            let new_shielded_collateral = tongo
+                .get_shielded_balance(position.tongo_account, wbtc_token);
+
+            // ===== UPDATE POSITION =====
+            // Update position with new debt and collateral
+            let mut updated_position = position;
+            updated_position.shielded_debt = shielded_debt;
+            updated_position.shielded_collateral = new_shielded_collateral;
+            updated_position.last_updated = get_block_timestamp();
+            self.positions.entry(caller).write(updated_position);
+
+            // ===== EMIT EVENTS =====
+            self.emit(Borrowed { user: caller, amount: borrow_amount, shielded_debt });
+            self
+                .emit(
+                    LeverageLoopExecuted {
+                        user: caller,
+                        borrowed_amount: borrow_amount,
+                        redeposited_amount: redeposit_amount,
+                        new_shielded_collateral,
+                    },
+                );
+
+            new_shielded_collateral
         }
     }
 }

@@ -63,7 +63,7 @@ export async function exampleExecuteSwap() {
     })
     
     console.log('AutoSwappr Swap Transaction:')
-    console.log('- TX Hash:', result.transactionHash)
+    console.log('- TX HaPosition Management & Decryptionsh:', result.transactionHash)
     console.log('- Status:', result.status)
     console.log('- Expected Output:', result.expectedToAmount, 'wBTC')
     console.log('- Contract:', '0x05582ad635c43b4c14dbfa53cbde0df32266164a0d1b36e5b510e5b34aeb364b')

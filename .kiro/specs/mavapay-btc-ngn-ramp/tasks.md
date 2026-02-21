@@ -85,7 +85,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test Lightning invoice generation
   - _Requirements: 1.5, 1.7_
 
-- [ ] 8. Create MavaPay API routes - On-ramp endpoint
+- [x] 8. Create MavaPay API routes - On-ramp endpoint
   - Implement `/api/ramp/on-ramp` POST endpoint
   - Generate payment instructions
   - Create transaction record

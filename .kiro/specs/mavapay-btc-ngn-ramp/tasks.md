@@ -155,7 +155,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test deleting bank account
   - _Requirements: 4.1-4.6_
 
-- [ ] 13. Create transaction management utilities
+- [x] 13. Create transaction management utilities
   - Implement transaction storage in localStorage
   - Add transaction status update functions
   - Implement transaction history retrieval

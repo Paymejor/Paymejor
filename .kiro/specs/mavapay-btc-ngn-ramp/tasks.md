@@ -139,7 +139,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test error handling
   - _Requirements: 1.1-1.8_
 
-- [ ] 12. Create useBankAccounts custom hook
+- [x] 12. Create useBankAccounts custom hook
   - Implement bank account CRUD operations
   - Add encryption/decryption for storage
   - Implement bank verification

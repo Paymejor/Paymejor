@@ -62,7 +62,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test API error handling
   - _Requirements: 1.3, 1.4_
 
-- [ ] 6. Create MavaPay API routes - Bank operations
+- [x] 6. Create MavaPay API routes - Bank operations
   - Implement `/api/ramp/banks` GET endpoint
   - Implement `/api/ramp/verify-bank` POST endpoint
   - Add bank account format validation

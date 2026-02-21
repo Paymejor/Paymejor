@@ -121,7 +121,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
 - [ ] 10. Checkpoint - Ensure all API routes pass tests
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 11. Create useMavaPay custom hook
+- [x] 11. Create useMavaPay custom hook
   - Implement quote fetching with caching
   - Implement off-ramp initiation
   - Implement on-ramp initiation
@@ -259,8 +259,8 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test re-confirmation flow
   - _Requirements: 6.3, 6.4_
 
-- [ ] 20. Add integration with existing Autoswap hook
-  - Connect off-ramp flow to Autoswap for USDT/USDC → BTC
+- [ ] 20. Add integration with existing SwapRouter hook
+  - Connect off-ramp flow to SwapRouter for USDT/USDC → wBTC
   - Handle swap completion and trigger MavaPay quote
   - _Requirements: 1.2, 1.3_
 

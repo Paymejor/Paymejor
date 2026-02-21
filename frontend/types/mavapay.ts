@@ -133,6 +133,11 @@ export interface BankVerificationParams {
   bankCode: string;
 }
 
+export interface BankVerificationRequest {
+  accountNumber: string;
+  bankCode: string;
+}
+
 export interface BankVerificationResponse {
   isValid: boolean;
   accountName?: string;

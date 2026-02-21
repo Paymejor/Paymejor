@@ -72,7 +72,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - **Property 8: Bank Account Format Validation**
   - **Validates: Requirements 4.1**
 
-- [ ] 7. Create MavaPay API routes - Payout endpoint
+- [x] 7. Create MavaPay API routes - Payout endpoint
   - Implement `/api/ramp/payout` POST endpoint
   - Validate bank account details before submission
   - Generate Lightning invoice

@@ -35,13 +35,13 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Define Quote and Payout types
   - _Requirements: 1.1-1.8, 2.1-2.7_
 
-- [ ] 4. Implement bank account encryption and storage
+- [x] 4. Implement bank account encryption and storage
   - Create encryption utilities using AES-256
   - Implement bank account storage in localStorage
   - Add encryption key derivation from wallet address
   - _Requirements: 4.3, 10.3_
 
-- [ ]* 4.1 Write property test for encryption round trip
+- [x]* 4.1 Write property test for encryption round trip
   - **Property 9: Encryption Round Trip**
   - **Validates: Requirements 4.3, 10.3**
 

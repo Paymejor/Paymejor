@@ -24,7 +24,7 @@ const TAG_LENGTH = 128; // 128 bits for GCM authentication tag
  * @param salt - Salt for key derivation
  * @returns CryptoKey for AES-GCM encryption
  */
-async function deriveKey(walletAddress: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(walletAddress: string, salt: BufferSource): Promise<CryptoKey> {
   // Import the wallet address as a key
   const keyMaterial = await crypto.subtle.importKey(
     'raw',

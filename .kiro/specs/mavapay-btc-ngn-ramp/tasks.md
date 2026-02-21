@@ -169,7 +169,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - **Property 11: Status Update Timestamp**
   - **Validates: Requirements 5.2**
 
-- [ ] 14. Build Bank Account Manager component
+- [x] 14. Build Bank Account Manager component
   - Create UI for displaying saved bank accounts
   - Add form for adding new bank account
   - Implement bank account verification flow

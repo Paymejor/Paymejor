@@ -29,7 +29,7 @@ This feature integrates MavaPay as the primary on-ramp and off-ramp provider for
 #### Acceptance Criteria
 
 1. WHEN a user initiates an off-ramp transaction, THE System SHALL validate the user has sufficient USDT or USDC balance
-2. WHEN the user confirms the off-ramp, THE System SHALL swap USDT/USDC to BTC using Autoswap
+2. WHEN the user confirms the off-ramp, THE System SHALL swap USDT/USDC to BTC using AVNU
 3. WHEN the BTC swap completes, THE System SHALL request a quote from MavaPay for BTC to NGN conversion
 4. WHEN the MavaPay quote is received, THE System SHALL display the NGN amount, fees, and exchange rate to the user
 5. WHEN the user accepts the quote, THE System SHALL generate a Lightning invoice via MavaPay API

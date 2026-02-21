@@ -40,3 +40,52 @@ https://docs.mavapay.co/payouts/kes-payout
 https://docs.mavapay.co/api-reference/introduction
 https://docs.mavapay.co/api-reference/endpoint/withdraw/withdraw-fiat
 https://docs.mavapay.co/api-reference/endpoint/withdraw/withdraw-btc
+
+
+AVNU Core Links
+
+🌐 dApp: https://app.avnu.fi
+📖 Docs (V2): https://docs.avnu.fi
+🧠 SDK: https://github.com/avnu-labs/avnu-sdk
+💻 API Reference: https://docs.avnu.fi/api/overview
+🐙 GitHub org: https://github.com/avnu-labs
+
+⸻
+
+Build With avnu
+
+📦 Install SDK:
+npm install @avnu/avnu-sdk
+
+🔁 Swap / DCA / Stake API:
+https://docs.avnu.fi/api/swap
+https://docs.avnu.fi/api/dca
+https://docs.avnu.fi/api/staking
+
+💠 Starknet Token List API:
+https://docs.avnu.fi/api/tokens
+
+📈 Markets API:
+https://docs.avnu.fi/api/markets
+
+⸻
+
+⛽️ Paymaster (Gas Abstraction)
+
+Request API Key: 
+
+Repo: https://github.com/avnu-labs/paymaster
+Docs: https://docs.avnu.fi/docs/paymaster
+
+⸻
+
+Extra Tools
+
+💠 Community Token Platform:
+https://community.avnu.fi
+
+📡 Status Page:
+https://health.avnu.fi/
+
+🧩 AI / LLM Support (MCP-ready):
+https://docs.avnu.fi/resources/ai-integration

@@ -93,6 +93,44 @@ This document provides an overview of all documentation available for the PayMej
     - Security checklist
     - Validation examples
 
+15. **[SWAP_INTEGRATION.md](./SWAP_INTEGRATION.md)** - AVNU swap integration (CURRENT)
+    - Real-time quotes from all DEXs
+    - Gasless transactions via Paymaster
+    - Security validations
+    - Usage examples
+    - Complete implementation guide
+
+16. **[AUTOSWAP_INTEGRATION.md](./AUTOSWAP_INTEGRATION.md)** - AutoSwappr DEX integration (DEPRECATED)
+    - Direct user swap architecture
+    - Implementation guide
+    - Security model
+    - Leverage loop integration
+    - Error handling
+    - Testing strategy
+    - **Note**: Replaced by SWAP_ROUTER_INTEGRATION.md
+
+16. **[AUTOSWAP_QUICK_REFERENCE.md](./AUTOSWAP_QUICK_REFERENCE.md)** - AutoSwappr quick reference (DEPRECATED)
+    - Basic usage examples
+    - Common patterns
+    - Troubleshooting guide
+    - Quick lookup table
+    - **Note**: Replaced by SWAP_INTEGRATION.md
+
+17. **[SWAP_ROUTER_INTEGRATION.md](./SWAP_ROUTER_INTEGRATION.md)** - Multi-provider swap routing (DEPRECATED)
+    - AVNU + AutoSwappr integration
+    - Paymaster (gasless transactions)
+    - Automatic fallback
+    - Provider comparison
+    - Migration guide
+    - **Note**: Replaced by SWAP_INTEGRATION.md (AVNU only)
+
+18. **[SWAP_ROUTER_IMPLEMENTATION_SUMMARY.md](./SWAP_ROUTER_IMPLEMENTATION_SUMMARY.md)** - Swap router summary (DEPRECATED)
+    - Implementation overview
+    - Key improvements
+    - Migration guide
+    - Deployment checklist
+    - **Note**: Replaced by SWAP_INTEGRATION.md
+
 ### Scripts
 
 15. **[scripts/pre-deployment-check.sh](./scripts/pre-deployment-check.sh)** - Pre-deployment verification
@@ -152,6 +190,29 @@ This document provides an overview of all documentation available for the PayMej
 1. Read [SECURITY.md](./SECURITY.md)
 2. Review [SECURITY_IMPLEMENTATION_SUMMARY.md](./SECURITY_IMPLEMENTATION_SUMMARY.md)
 3. Check implementation in `lib/security-validation.ts`
+
+### I want to integrate token swaps
+
+1. Read [SWAP_INTEGRATION.md](./SWAP_INTEGRATION.md) for complete guide
+2. Check implementation in `hooks/useSwapRouter.ts`
+3. Learn about AVNU Paymaster for gasless transactions
+4. Review security validations
+
+### I want to integrate AutoSwappr for token swaps (DEPRECATED)
+
+**DEPRECATED**: Use SWAP_INTEGRATION instead
+
+1. Read [SWAP_INTEGRATION.md](./SWAP_INTEGRATION.md) for current implementation
+2. Uses AVNU SDK v4 with better quotes and gasless support
+3. Check implementation in `hooks/useSwapRouter.ts`
+
+### I want to integrate swap routing (AVNU + AutoSwappr) (DEPRECATED)
+
+**DEPRECATED**: Now using AVNU only
+
+1. Read [SWAP_INTEGRATION.md](./SWAP_INTEGRATION.md) for current implementation
+2. AVNU provides better quotes and gasless transactions
+3. No need for fallback providers
 
 ---
 

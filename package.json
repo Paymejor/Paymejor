@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"@avnu/avnu-sdk": "^4.0.1"
+	}
+}

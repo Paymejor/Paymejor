@@ -643,18 +643,18 @@ export function useVesu(): UseVesuReturn {
       steps[steps.length - 1].transactionHash = borrowResult.transactionHash
       steps[steps.length - 1].status = 'confirmed'
 
-      // Step 2: Swap USDC to wBTC via Autoswap
-      // Note: This requires importing useAutoswap, but to avoid circular dependencies,
+      // Step 2: Swap USDC to wBTC via AVNU
+      // Note: This requires importing useSwapRouter, but to avoid circular dependencies,
       // we'll need to call the swap directly or pass the swap function as a dependency
       steps.push({
         step: currentStep++,
-        description: 'Swapping USDC to wBTC via Autoswap',
+        description: 'Swapping USDC to wBTC via AVNU',
         status: 'pending',
         amount: borrowAmountUSDC.toString(),
       })
 
       // For now, we'll simulate the swap result
-      // In production, this would call useAutoswap().executeSwap()
+      // In production, this would call useSwapRouter().executeSwap()
       // The actual implementation will be done in the component that uses this hook
       const swappedWBTC = additionalCollateral // Simplified: assume 1:1 after price conversion
 

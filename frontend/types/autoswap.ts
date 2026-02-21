@@ -1,20 +1,35 @@
 /**
- * Autoswap DEX Aggregator Type Definitions
+ * Swap Router Type Definitions
  * 
- * Types for Autoswap SDK integration on Starknet
- * Autoswap aggregates liquidity from multiple DEXs (Ekubo, JediSwap, etc.)
+ * Types for multi-provider swap routing on Starknet
+ * - Primary: AVNU (better quotes, Paymaster support)
+ * - Fallback: AutoSwappr
  * 
  * Requirements: AC-5.2, AC-5.4, TR-4.5
  */
 
 import { SupportedNetwork } from '@/lib/constants'
+import { Quote } from '@avnu/avnu-sdk'
 
 /**
- * Autoswap client configuration
+ * Swap provider type
  */
-export interface AutoswapConfig {
+export type SwapProvider = 'avnu' | 'autoswappr'
+
+/**
+ * Swap router configuration
+ */
+export interface SwapConfig {
   network: SupportedNetwork
   rpcUrl: string
+  avnu: {
+    enabled: boolean
+    paymasterEnabled: boolean
+  }
+  autoswappr: {
+    enabled: boolean
+    contractAddress: string
+  }
 }
 
 /**
@@ -33,7 +48,7 @@ export interface SwapQuoteParams extends SwapTokenPair {
 }
 
 /**
- * Swap quote response from Autoswap
+ * Swap quote response
  */
 export interface SwapQuote {
   fromToken: string
@@ -44,6 +59,8 @@ export interface SwapQuote {
   route: SwapRoute[]         // DEX route used
   estimatedGas: string       // Estimated gas cost
   expiresAt: number          // Unix timestamp
+  provider: SwapProvider     // Which provider gave this quote
+  avnuQuote?: Quote          // Original AVNU quote (if from AVNU)
 }
 
 /**
@@ -63,6 +80,7 @@ export interface SwapExecuteParams extends SwapTokenPair {
   slippage: number          // Slippage tolerance (e.g., 0.5 for 0.5%)
   recipient?: string        // Recipient address (defaults to sender)
   deadline?: number         // Unix timestamp deadline
+  gasless?: boolean         // Use Paymaster for gasless transaction (AVNU only)
 }
 
 /**
@@ -76,6 +94,8 @@ export interface SwapTransactionResult {
   fromAmount: string
   expectedToAmount: string
   actualToAmount?: string   // Filled after confirmation
+  provider: SwapProvider    // Which provider executed the swap
+  gasless: boolean          // Whether Paymaster was used
 }
 
 /**
@@ -87,9 +107,9 @@ export interface SlippageConfig {
 }
 
 /**
- * Autoswap error types
+ * Swap error types
  */
-export type AutoswapErrorType =
+export type SwapErrorType =
   | 'INSUFFICIENT_LIQUIDITY'
   | 'SLIPPAGE_EXCEEDED'
   | 'QUOTE_EXPIRED'
@@ -97,20 +117,23 @@ export type AutoswapErrorType =
   | 'INSUFFICIENT_BALANCE'
   | 'TRANSACTION_FAILED'
   | 'NETWORK_ERROR'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'PAYMASTER_FAILED'
 
 /**
- * Autoswap error
+ * Swap error
  */
-export interface AutoswapError {
-  type: AutoswapErrorType
+export interface SwapError {
+  type: SwapErrorType
   message: string
+  provider?: SwapProvider
   details?: unknown
 }
 
 /**
  * Supported DEX list
  */
-export type SupportedDEX = 'Ekubo' | 'JediSwap' | 'MySwap' | 'SithSwap' | '10KSwap'
+export type SupportedDEX = 'Ekubo' | 'JediSwap' | 'MySwap' | 'SithSwap' | '10KSwap' | 'AVNU'
 
 /**
  * DEX liquidity info
@@ -120,3 +143,8 @@ export interface DEXLiquidity {
   liquidity: string         // Total liquidity in USD
   volume24h: string         // 24h volume in USD
 }
+
+// Legacy exports for backward compatibility
+export type AutoswapConfig = SwapConfig
+export type AutoswapError = SwapError
+export type AutoswapErrorType = SwapErrorType

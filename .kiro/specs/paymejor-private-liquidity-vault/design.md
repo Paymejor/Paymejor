@@ -259,19 +259,39 @@ async function leverageLoop(network: 'sepolia' | 'mainnet') {
   // 1. Borrow USDC against current collateral (via Vesu)
   const borrowedUSDC = await borrowUSDC(maxBorrowAmount, network);
   
-  // 2. Swap USDC → wBTC via Autoswap SDK (aggregates Ekubo/JediSwap)
-  const autoswap = new AutoswapClient({ network });
-  const swappedWBTC = await autoswap.swap({
-    fromToken: config.usdcAddress,
-    toToken: config.wbtcAddress,
-    amount: borrowedUSDC,
-    slippage: 0.5, // 0.5%
+  // 2. Approve USDC for AutoSwappr contract
+  await account.execute({
+    contractAddress: config.usdcAddress,
+    entrypoint: 'approve',
+    calldata: [
+      AUTOSWAPPR_CONTRACT_ADDRESS,
+      borrowedUSDC,
+      '0',
+    ],
   });
   
-  // 3. Re-supply swapped wBTC to Vesu pool
+  // 3. Swap USDC → wBTC via AutoSwappr (aggregates Ekubo/JediSwap)
+  const swapResult = await account.execute({
+    contractAddress: AUTOSWAPPR_CONTRACT_ADDRESS,
+    entrypoint: 'swap',
+    calldata: [
+      config.usdcAddress,        // token_in
+      config.wbtcAddress,        // token_out
+      borrowedUSDC,              // amount_in (low)
+      '0',                       // amount_in (high)
+      minAmountOut.toString(),   // min_amount_out (low)
+      '0',                       // min_amount_out (high)
+      userAddress,               // recipient (user's wallet)
+    ],
+  });
+  
+  // 4. Wait for swap confirmation
+  await provider.waitForTransaction(swapResult.transaction_hash);
+  
+  // 5. Re-supply swapped wBTC to Vesu pool
   await depositCollateral(swappedWBTC, network);
   
-  // 4. New borrowing capacity increased
+  // 6. New borrowing capacity increased
   return getUpdatedPosition(network);
 }
 ```
@@ -346,44 +366,86 @@ const VESU_POOLS = {
 };
 ```
 
-### 4.2 Autoswap SDK Integration
+### 4.2 Swap Routing Integration
 
-**Purpose**: Aggregate DEX liquidity for USDC → wBTC swaps in leverage loop
+**Primary: AVNU DEX Aggregator**
+
+AVNU provides superior swap routing with real-time quotes, better liquidity aggregation, and gasless transaction support via Paymaster.
+
+**Contract**: AVNU Router (per network)
+**SDK**: `@avnu/avnu-sdk`
+**Paymaster**: Gas abstraction for better UX
 
 ```typescript
-// Autoswap Client (from SDK)
-import { AutoswapClient } from 'autoswap-sdk';
+// AVNU SDK Integration
+import { fetchQuotes, executeSwap } from '@avnu/avnu-sdk';
 
-const autoswap = new AutoswapClient({
-  network: 'sepolia', // or 'mainnet'
-  provider: starknetProvider,
+// Get real-time quote from AVNU
+const quotes = await fetchQuotes({
+  sellTokenAddress: USDC_ADDRESS,
+  buyTokenAddress: WBTC_ADDRESS,
+  sellAmount: parseUnits('1000', 6), // 1000 USDC
+  takerAddress: userAddress,
 });
 
-// Execute swap
-const swapResult = await autoswap.swap({
-  fromToken: USDC_ADDRESS,
-  toToken: WBTC_ADDRESS,
-  amount: parseUnits('1000', 6), // 1000 USDC
-  slippage: 0.5, // 0.5% slippage tolerance
-  recipient: userAddress,
-});
+// Best quote from aggregated DEXs
+const bestQuote = quotes[0];
 
-// Get quote before swap
-const quote = await autoswap.getQuote({
-  fromToken: USDC_ADDRESS,
-  toToken: WBTC_ADDRESS,
-  amount: parseUnits('1000', 6),
+// Execute swap with Paymaster (gasless)
+const swapResult = await executeSwap(
+  account,
+  bestQuote,
+  {
+    slippage: 0.005, // 0.5%
+    executeApprove: true, // Auto-approve if needed
+    gasless: true, // Use Paymaster for gas abstraction
+  }
+);
+```
+
+**Fallback: AutoSwappr**
+
+If AVNU is unavailable or doesn't support a token pair, fall back to AutoSwappr.
+
+**Contract**: `0x05582ad635c43b4c14dbfa53cbde0df32266164a0d1b36e5b510e5b34aeb364b`
+
+```typescript
+// AutoSwappr fallback
+await account.execute({
+  contractAddress: AUTOSWAPPR_CONTRACT_ADDRESS,
+  entrypoint: 'swap',
+  calldata: [fromToken, toToken, amount, '0', minAmount, '0', recipient],
 });
 ```
 
+**Architecture: Direct User Swap**
+
+Both AVNU and AutoSwappr use direct user swap:
+- User approves tokens to swap router
+- User executes swap directly through their wallet
+- Tokens sent directly to user's wallet
+- No custody risk, no intermediary account
+
+**AVNU Benefits**:
+- ✅ Real-time quotes from multiple DEXs
+- ✅ Better price discovery
+- ✅ Gasless transactions via Paymaster
+- ✅ Auto-approval handling
+- ✅ More mature SDK
+- ✅ Better liquidity aggregation
+
 **Network Configuration**:
 ```typescript
-const AUTOSWAP_CONFIG = {
+const SWAP_CONFIG = {
   sepolia: {
-    // Autoswap aggregates Ekubo, JediSwap on Sepolia
+    avnuApiUrl: 'https://sepolia.api.avnu.fi',
+    paymasterEnabled: true,
+    autoswapprFallback: '0x05582ad635c43b4c14dbfa53cbde0df32266164a0d1b36e5b510e5b34aeb364b',
   },
   mainnet: {
-    // Autoswap aggregates Ekubo, JediSwap, others on Mainnet
+    avnuApiUrl: 'https://api.avnu.fi',
+    paymasterEnabled: true,
+    autoswapprFallback: '0x05582ad635c43b4c14dbfa53cbde0df32266164a0d1b36e5b510e5b34aeb364b',
   },
 };
 ```
@@ -626,33 +688,144 @@ await vesuPool.borrow({
 const position = await vesuPool.getUserPosition(userAddress);
 ```
 
-### 7.5 Autoswap SDK Integration
+### 7.5 Swap Routing Integration
+
+**Primary: AVNU SDK**
 
 ```typescript
-// Use Autoswap SDK for token swaps
-import { AutoswapClient } from 'autoswap-sdk';
+// Install: npm install @avnu/avnu-sdk
+import { fetchQuotes, executeSwap } from '@avnu/avnu-sdk';
 
-const autoswap = new AutoswapClient({
-  network: network, // 'sepolia' or 'mainnet'
-  provider: starknetProvider,
+// Step 1: Get real-time quotes from AVNU
+const quotes = await fetchQuotes({
+  sellTokenAddress: USDC_ADDRESS,
+  buyTokenAddress: WBTC_ADDRESS,
+  sellAmount: parseUnits('1000', 6), // 1000 USDC
+  takerAddress: userAddress,
 });
 
-// Get quote
-const quote = await autoswap.getQuote({
-  fromToken: USDC_ADDRESS,
-  toToken: WBTC_ADDRESS,
-  amount: swapAmount,
-});
+// Step 2: Select best quote
+const bestQuote = quotes[0]; // Sorted by best price
 
-// Execute swap
-const swapTx = await autoswap.swap({
-  fromToken: USDC_ADDRESS,
-  toToken: WBTC_ADDRESS,
-  amount: swapAmount,
-  slippage: 0.5, // 0.5%
-  recipient: userAddress,
-});
+console.log('Best route:', bestQuote.routes);
+console.log('Expected output:', bestQuote.buyAmount);
+console.log('Price impact:', bestQuote.priceRatioUsd);
+
+// Step 3: Execute swap with Paymaster (gasless)
+const swapResult = await executeSwap(
+  account, // Connected wallet account
+  bestQuote,
+  {
+    slippage: 0.005, // 0.5% slippage
+    executeApprove: true, // Auto-handle approval
+    gasless: true, // Use Paymaster for gas abstraction
+  }
+);
+
+console.log('Swap TX:', swapResult.transactionHash);
+
+// Step 4: Wait for confirmation
+await provider.waitForTransaction(swapResult.transactionHash);
+
+// wBTC is now in user's wallet, ready for Vesu supply
 ```
+
+**Paymaster Configuration (Gasless Transactions)**:
+
+```typescript
+// Request API key from AVNU
+// Docs: https://docs.avnu.fi/docs/paymaster
+
+import { PaymasterExecutor } from '@avnu/avnu-sdk';
+
+const paymasterExecutor = new PaymasterExecutor({
+  apiKey: process.env.AVNU_PAYMASTER_API_KEY,
+  network: 'mainnet', // or 'sepolia'
+});
+
+// Execute swap with gas abstraction
+const result = await paymasterExecutor.executeSwap(
+  account,
+  bestQuote,
+  { slippage: 0.005 }
+);
+```
+
+**Fallback: AutoSwappr**
+
+If AVNU is unavailable or doesn't support the token pair:
+
+```typescript
+// Step 1: Approve USDC for AutoSwappr contract
+const approveResult = await account.execute({
+  contractAddress: USDC_ADDRESS,
+  entrypoint: 'approve',
+  calldata: [
+    AUTOSWAPPR_CONTRACT_ADDRESS, // spender
+    swapAmount,                   // amount (low)
+    '0',                          // amount (high)
+  ],
+});
+
+await provider.waitForTransaction(approveResult.transaction_hash);
+
+// Step 2: Calculate minimum output with slippage
+const slippageBps = Math.floor(0.5 * 100); // 0.5% = 50 bps
+const minAmountOut = (expectedAmount * (10000 - slippageBps)) / 10000;
+
+// Step 3: Execute swap via AutoSwappr contract
+const swapResult = await account.execute({
+  contractAddress: AUTOSWAPPR_CONTRACT_ADDRESS,
+  entrypoint: 'swap',
+  calldata: [
+    USDC_ADDRESS,               // token_in
+    WBTC_ADDRESS,               // token_out
+    swapAmount,                 // amount_in (low)
+    '0',                        // amount_in (high)
+    minAmountOut.toString(),    // min_amount_out (low)
+    '0',                        // min_amount_out (high)
+    userAddress,                // recipient (user's wallet)
+  ],
+});
+
+// Step 4: Wait for transaction confirmation
+await provider.waitForTransaction(swapResult.transaction_hash);
+
+// wBTC is now in user's wallet, ready for Vesu supply
+```
+
+**Network Configuration**:
+
+```typescript
+const SWAP_CONFIG = {
+  sepolia: {
+    avnu: {
+      apiUrl: 'https://sepolia.api.avnu.fi',
+      paymasterEnabled: true,
+    },
+    autoswappr: {
+      contractAddress: '0x05582ad635c43b4c14dbfa53cbde0df32266164a0d1b36e5b510e5b34aeb364b',
+    },
+  },
+  mainnet: {
+    avnu: {
+      apiUrl: 'https://api.avnu.fi',
+      paymasterEnabled: true,
+    },
+    autoswappr: {
+      contractAddress: '0x05582ad635c43b4c14dbfa53cbde0df32266164a0d1b36e5b510e5b34aeb364b',
+    },
+  },
+};
+```
+
+**Security Notes**:
+- User approves each transaction via wallet
+- No private key storage needed
+- Swap executes atomically (completes or reverts)
+- Tokens sent directly to user's wallet
+- User maintains full custody throughout
+- Paymaster handles gas (optional, improves UX)
 
 ## 8. Deployment Strategy
 

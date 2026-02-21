@@ -17,7 +17,7 @@ import { useVesuPositionCache, useVesuBorrowingCapacityCache, useVesuPoolParamet
 import { useTongo } from '@/hooks/useTongo'
 import { useStarknet } from '@/hooks/useStarknet'
 import { useNetwork } from '@/hooks/useNetwork'
-import { useAutoswap } from '@/hooks/useAutoswap'
+import { useSwapRouter } from '@/hooks/useSwapRouter'
 import { getNetworkConfig, TOKEN_METADATA, getTxUrl } from '@/lib/constants'
 import { toast } from 'sonner'
 import { ProjectedPosition, LeverageLoopStep } from '@/types/vesu'
@@ -50,7 +50,7 @@ export function BorrowTab() {
   
   const { fund, tongoAccount, createAccount } = useTongo()
   const { waitForTransaction } = useStarknet()
-  const { executeSwap, getQuote } = useAutoswap()
+  const { executeSwap, getQuote } = useSwapRouter()
   
   const [borrowAmount, setBorrowAmount] = useState('500')
   const [leverage, setLeverage] = useState([1.5])
@@ -196,13 +196,13 @@ export function BorrowTab() {
         }
         
         // Now we need to execute the swap step manually since executeLeverageLoop
-        // doesn't have access to useAutoswap
+        // doesn't have access to useSwapRouter
         // Find the borrow step
         const borrowStep = loopResult.steps.find(s => s.description.includes('Borrowing'))
         if (borrowStep && borrowStep.amount) {
           // Execute swap
           toast.info('Swapping USDC to wBTC...', {
-            description: 'Using Autoswap aggregator',
+            description: 'Using AVNU aggregator with gasless transaction',
           })
           
           const swapResult = await executeSwap({
@@ -211,12 +211,13 @@ export function BorrowTab() {
             amount: borrowStep.amount,
             slippage: 0.5,
             recipient: address,
+            gasless: true, // Enable gasless transaction via AVNU Paymaster
           })
           
           await waitForTransaction(swapResult.transactionHash)
           
           toast.success('Swap completed!', {
-            description: 'wBTC received',
+            description: swapResult.gasless ? 'wBTC received (gas-free)' : 'wBTC received',
           })
         }
         

@@ -96,7 +96,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test payment instruction generation
   - _Requirements: 2.1, 2.3_
 
-- [ ] 9. Implement webhook endpoint and signature verification
+- [x] 9. Implement webhook endpoint and signature verification
   - Create `/api/ramp/webhook` POST endpoint
   - Implement HMAC-SHA256 signature verification
   - Add webhook event routing logic

@@ -183,7 +183,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test deletion
   - _Requirements: 4.1-4.6_
 
-- [ ] 15. Build Ramp Tab component - Off-ramp UI
+- [x] 15. Build Ramp Tab component - Off-ramp UI
   - Create off-ramp form with amount input
   - Add currency selector (USDT/USDC)
   - Display real-time quote with fees
@@ -310,7 +310,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - _Requirements: All_
 
 - [ ] 26. Create documentation
-  - Write user guide for on/off-ramp features
+  - Write user guide for on/off-ramBuild Bank Account Manager componentp features
   - Document API endpoints
   - Create troubleshooting guide
   - Add inline code comments

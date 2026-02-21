@@ -28,7 +28,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test round-trip conversions (BTC → satoshis → BTC)
   - _Requirements: 6.1_
 
-- [ ] 3. Create data models and TypeScript types
+- [x] 3. Create data models and TypeScript types
   - Define MavaPay API request/response types
   - Define RampTransaction type
   - Define BankAccount type

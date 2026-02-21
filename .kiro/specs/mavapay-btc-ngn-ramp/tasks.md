@@ -45,7 +45,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - **Property 9: Encryption Round Trip**
   - **Validates: Requirements 4.3, 10.3**
 
-- [ ] 5. Create MavaPay API routes - Quote endpoint
+- [x] 5. Create MavaPay API routes - Quote endpoint
   - Implement `/api/ramp/quote` POST endpoint
   - Add request validation
   - Call MavaPay quote API

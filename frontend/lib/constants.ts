@@ -246,4 +246,24 @@ export const OPTIONAL_ENV_VARS = [
   'NEXT_PUBLIC_MAINNET_USDC_ADDRESS',
   // Default network
   'NEXT_PUBLIC_DEFAULT_NETWORK',
+  // MavaPay
+  'NEXT_PUBLIC_MAVAPAY_API_URL',
+  'NEXT_PUBLIC_MAVAPAY_SANDBOX_URL',
+  'MAVAPAY_API_KEY',
+  'MAVAPAY_SANDBOX_API_KEY',
+  'MAVAPAY_WEBHOOK_SECRET',
+  'MAVAPAY_SANDBOX_WEBHOOK_SECRET',
+  'NEXT_PUBLIC_ENABLE_MAVAPAY_RAMP',
+  'NEXT_PUBLIC_MAVAPAY_MIN_NGN_AMOUNT',
 ] as const;
+
+// ============================================================================
+// MavaPay Configuration
+// ============================================================================
+
+export const MAVAPAY_CONFIG = {
+  apiUrl: process.env.NEXT_PUBLIC_MAVAPAY_API_URL || 'https://api.mavapay.co',
+  sandboxUrl: process.env.NEXT_PUBLIC_MAVAPAY_SANDBOX_URL || 'https://staging.api.mavapay.co',
+  enabled: process.env.NEXT_PUBLIC_ENABLE_MAVAPAY_RAMP === 'true',
+  minNGNAmount: parseInt(process.env.NEXT_PUBLIC_MAVAPAY_MIN_NGN_AMOUNT || '200000', 10),
+} as const;

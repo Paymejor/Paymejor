@@ -170,6 +170,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Attempt to reconnect to last connected wallet on mount
+   * This will pick up the wallet connection made on the landing page
    */
   useEffect(() => {
     const reconnectWallet = async () => {

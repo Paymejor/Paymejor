@@ -1,5 +1,6 @@
 {
 	"dependencies": {
-		"@avnu/avnu-sdk": "^4.0.1"
+		"@avnu/avnu-sdk": "^4.0.1",
+		"vitest": "^4.0.18"
 	}
 }

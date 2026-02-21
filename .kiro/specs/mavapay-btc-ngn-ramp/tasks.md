@@ -6,7 +6,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
 
 ## Tasks
 
-- [ ] 1. Set up MavaPay API client and configuration
+- [x] 1. Set up MavaPay API client and configuration
   - Create MavaPay client class with authentication
   - Add environment variables for API keys and URLs
   - Implement request/response types based on MavaPay API
@@ -17,7 +17,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - **Property 13: Retry with Exponential Backoff**
   - **Validates: Requirements 3.6**
 
-- [ ] 2. Implement currency conversion utilities
+- [x] 2. Implement currency conversion utilities
   - Create CurrencyConverter class for NGN/BTC conversions
   - Add functions for kobo ↔ NGN and satoshis ↔ BTC
   - Add formatting functions for display

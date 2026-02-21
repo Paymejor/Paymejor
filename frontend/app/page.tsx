@@ -1,12 +1,73 @@
 'use client'
 
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import ClickSpark from '@/components/ClickSpark'
 import { Shield, Zap, Lock, TrendingUp } from 'lucide-react'
+import { connect as connectStarknet } from '@starknet-io/get-starknet'
+import { useState } from 'react'
+import { useToast } from '@/hooks/use-toast'
 
 export default function LandingPage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [isConnecting, setIsConnecting] = useState(false)
+
+  const handleLaunchApp = async () => {
+    setIsConnecting(true)
+    try {
+      // Show wallet selection modal
+      const starknet = await connectStarknet({
+        modalMode: 'alwaysAsk',
+        modalTheme: 'dark',
+      })
+
+      if (!starknet) {
+        throw new Error('No wallet selected')
+      }
+
+      // Check if wallet has an account
+      if (!(starknet as any).account) {
+        throw new Error('No account found. Please unlock your wallet')
+      }
+
+      // Navigate to app after successful connection
+      router.push('/app')
+      
+    } catch (error) {
+      console.error('Wallet connection error:', error)
+      
+      // Show error toast
+      let errorMessage = 'Connection Failed'
+      let errorDescription = 'Please try again'
+      
+      if (error instanceof Error) {
+        if (error.message.includes('No wallet selected')) {
+          errorMessage = 'No Wallet Selected'
+          errorDescription = 'Please select a wallet to continue'
+        } else if (error.message.includes('No account')) {
+          errorMessage = 'No Account Found'
+          errorDescription = 'Please unlock your wallet and try again'
+        } else if (error.message.includes('rejected') || error.message.includes('denied')) {
+          errorMessage = 'Connection Rejected'
+          errorDescription = 'You rejected the connection request'
+        } else {
+          errorDescription = error.message
+        }
+      }
+      
+      toast({
+        title: errorMessage,
+        description: errorDescription,
+        variant: 'destructive',
+        duration: 5000,
+      })
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
   return (
     <ClickSpark
       sparkColor="#ffffff"
@@ -33,8 +94,13 @@ export default function LandingPage() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button asChild size="lg" className="text-base">
-                <Link href="/app">Launch App</Link>
+              <Button 
+                size="lg" 
+                className="text-base"
+                onClick={handleLaunchApp}
+                disabled={isConnecting}
+              >
+                {isConnecting ? 'Connecting...' : 'Launch App'}
               </Button>
             </div>
           </div>
@@ -115,8 +181,13 @@ export default function LandingPage() {
             <p className="text-muted-foreground text-lg mb-8 max-w-2xl mx-auto">
               Connect your wallet and start borrowing against your BTC in minutes
             </p>
-            <Button asChild size="lg" className="text-base">
-              <Link href="/app">Launch App</Link>
+            <Button 
+              size="lg" 
+              className="text-base"
+              onClick={handleLaunchApp}
+              disabled={isConnecting}
+            >
+              {isConnecting ? 'Connecting...' : 'Launch App'}
             </Button>
           </div>
         </section>

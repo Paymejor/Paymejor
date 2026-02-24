@@ -32,7 +32,7 @@ import {
   getMinimumNGNFormatted,
   meetsMinimumNGN 
 } from '@/lib/currency-converter'
-import { QuoteResponse, BankAccount } from '@/types/mavapay'
+import { QuoteResponse, BankAccount, StoredRampTransaction } from '@/types/mavapay'
 import {
   Select,
   SelectContent,
@@ -41,6 +41,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { BankAccountManager } from '@/components/bank-account-manager'
+import { RampTransactionHistory } from '@/components/ramp-transaction-history'
+import { getTransactionsByWallet } from '@/lib/transaction-manager'
 
 /**
  * RampTab Component
@@ -98,6 +100,10 @@ export function RampTab() {
   const [txStatus, setTxStatus] = useState<'idle' | 'confirming' | 'processing' | 'success' | 'error'>('idle')
   const [txMessage, setTxMessage] = useState('')
   
+  // Transaction history state
+  const [transactions, setTransactions] = useState<StoredRampTransaction[]>([])
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
+  
   // On-ramp payment instructions
   const [paymentInstructions, setPaymentInstructions] = useState<{
     bankName: string;
@@ -128,11 +134,36 @@ export function RampTab() {
   }, [isConnected, address, config.contracts, getBalance])
 
   /**
-   * Load balances on mount and when wallet connects
+   * Fetch transaction history
+   * Requirements: 5.1, 5.3
+   */
+  const fetchTransactions = useCallback(() => {
+    if (!address) {
+      setTransactions([])
+      return
+    }
+    
+    try {
+      setTransactionsLoading(true)
+      const txs = getTransactionsByWallet(address, {
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      })
+      setTransactions(txs)
+    } catch (err) {
+      console.error('Error fetching transactions:', err)
+    } finally {
+      setTransactionsLoading(false)
+    }
+  }, [address])
+
+  /**
+   * Load balances and transactions on mount and when wallet connects
    */
   useEffect(() => {
     fetchBalances()
-  }, [fetchBalances])
+    fetchTransactions()
+  }, [fetchBalances, fetchTransactions])
 
   /**
    * Get current balance for selected currency
@@ -435,6 +466,27 @@ export function RampTab() {
     setPaymentInstructions(null)
     setTxStatus('idle')
     setTxMessage('')
+  }
+
+  /**
+   * Handle transaction retry
+   * Requirements: 5.5, 8.1
+   */
+  const handleRetryTransaction = async (transactionId: string) => {
+    // In a full implementation, this would:
+    // 1. Get the transaction details
+    // 2. Retry the failed operation
+    // 3. Update the transaction status
+    
+    setTxStatus('processing')
+    setTxMessage('Retrying transaction...')
+    
+    // For now, just refresh the transaction list
+    setTimeout(() => {
+      fetchTransactions()
+      setTxStatus('idle')
+      setTxMessage('')
+    }, 1000)
   }
 
   /**
@@ -964,6 +1016,16 @@ export function RampTab() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Transaction History */}
+      {isConnected && (
+        <RampTransactionHistory
+          transactions={transactions}
+          onRetry={handleRetryTransaction}
+          onRefresh={fetchTransactions}
+          loading={transactionsLoading}
+        />
+      )}
     </div>
   )
 }

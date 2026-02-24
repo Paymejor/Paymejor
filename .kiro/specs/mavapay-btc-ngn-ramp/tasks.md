@@ -202,7 +202,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test confirmation flow
   - _Requirements: 1.1-1.8_
 
-- [ ] 16. Build Ramp Tab component - On-ramp UI
+- [x] 16. Build Ramp Tab component - On-ramp UI
   - Create on-ramp form with NGN amount input
   - Display real-time quote with fees
   - Show payment instructions after confirmation

@@ -24,6 +24,7 @@ import { useMavaPay } from '@/hooks/useMavaPay'
 import { useBankAccounts } from '@/hooks/useBankAccounts'
 import { useNetwork } from '@/hooks/useNetwork'
 import { useSwapRouter } from '@/hooks/useSwapRouter'
+import { useAtomiq } from '@/hooks/useAtomiq'
 import { getNetworkConfig, TOKEN_METADATA } from '@/lib/constants'
 import { formatUnits, parseUnits } from '@/lib/utils'
 import { 
@@ -88,6 +89,13 @@ export function RampTab() {
     error: swapError,
   } = useSwapRouter()
   
+  const {
+    initiateBridge,
+    pollTransactionStatus,
+    isLoading: atomiqLoading,
+    error: atomiqError,
+  } = useAtomiq()
+  
   // UI State
   const [mode, setMode] = useState<RampMode>('off-ramp')
   const [amount, setAmount] = useState('')
@@ -128,6 +136,14 @@ export function RampTab() {
     amount: number;
     reference: string;
   } | null>(null)
+  
+  // On-ramp BTC receipt and bridge state
+  const [btcReceived, setBtcReceived] = useState(false)
+  const [receivedBtcAmount, setReceivedBtcAmount] = useState<string | null>(null)
+  const [showBridgeOption, setShowBridgeOption] = useState(false)
+  const [bridgeInProgress, setBridgeInProgress] = useState(false)
+  const [bridgeCompleted, setBridgeCompleted] = useState(false)
+  const [bridgeTxId, setBridgeTxId] = useState<string | null>(null)
 
   /**
    * Fetch token balances
@@ -365,6 +381,72 @@ export function RampTab() {
   }
 
   /**
+   * Handle Atomiq bridge initiation
+   * Requirements: 2.6, 2.7
+   */
+  const handleBridgeToStarknet = async () => {
+    if (!receivedBtcAmount) {
+      setTxStatus('error')
+      setTxMessage('No BTC amount available to bridge')
+      setTimeout(() => setTxStatus('idle'), 3000)
+      return
+    }
+
+    try {
+      setBridgeInProgress(true)
+      setTxStatus('processing')
+      setTxMessage('Initiating bridge to Starknet...')
+      
+      // Initiate bridge transaction
+      const bridgeTx = await initiateBridge({
+        fromAsset: 'BTC',
+        toAsset: 'wBTC',
+        amount: receivedBtcAmount,
+      })
+      
+      setBridgeTxId(bridgeTx.id)
+      setTxMessage('Bridge initiated. Monitoring transaction status...')
+      
+      // Poll transaction status
+      await pollTransactionStatus(bridgeTx.id, (status) => {
+        if (status.status === 'completed') {
+          setBridgeCompleted(true)
+          setBridgeInProgress(false)
+          setTxStatus('success')
+          setTxMessage('Bridge completed! Your wBTC is now available on Starknet.')
+          
+          // Refresh balances to show updated wBTC
+          fetchBalances()
+        } else if (status.status === 'failed') {
+          setBridgeInProgress(false)
+          setTxStatus('error')
+          setTxMessage('Bridge failed. Please contact support.')
+        } else {
+          setTxMessage(`Bridge in progress: ${status.status} (${status.confirmations}/${status.requiredConfirmations} confirmations)`)
+        }
+      })
+      
+    } catch (err) {
+      setBridgeInProgress(false)
+      setTxStatus('error')
+      setTxMessage(err instanceof Error ? err.message : 'Bridge failed')
+      console.error('Bridge error:', err)
+    }
+  }
+
+  /**
+   * Simulate BTC receipt (webhook handler would trigger this in production)
+   * Requirements: 2.5, 2.6
+   */
+  const handleBtcReceived = useCallback((btcAmount: string) => {
+    setBtcReceived(true)
+    setReceivedBtcAmount(btcAmount)
+    setShowBridgeOption(true)
+    setTxStatus('success')
+    setTxMessage('BTC received! You can now bridge to Starknet.')
+  }, [])
+
+  /**
    * Handle on-ramp confirmation
    * Requirements: 2.1, 2.3, 2.4
    */
@@ -561,6 +643,13 @@ export function RampTab() {
     setSwapTxHash(null)
     setSwapCompleted(false)
     setBtcAmount(null)
+    // Reset bridge state
+    setBtcReceived(false)
+    setReceivedBtcAmount(null)
+    setShowBridgeOption(false)
+    setBridgeInProgress(false)
+    setBridgeCompleted(false)
+    setBridgeTxId(null)
   }
 
   /**
@@ -568,8 +657,11 @@ export function RampTab() {
    */
   const handleClosePaymentInstructions = () => {
     setPaymentInstructions(null)
-    setTxStatus('idle')
-    setTxMessage('')
+    // Don't reset status if BTC was received or bridge is in progress
+    if (!btcReceived && !bridgeInProgress) {
+      setTxStatus('idle')
+      setTxMessage('')
+    }
   }
 
   /**
@@ -925,7 +1017,7 @@ export function RampTab() {
             // ON-RAMP UI
             <>
               {/* Payment Instructions Display (if available) */}
-              {paymentInstructions && (
+              {paymentInstructions && !btcReceived && (
                 <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium text-blue-700 dark:text-blue-400">
@@ -972,6 +1064,96 @@ export function RampTab() {
                       BTC will be sent to your Lightning address once payment is confirmed.
                     </AlertDescription>
                   </Alert>
+                  
+                  {/* Development/Testing: Simulate BTC Receipt */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <Button
+                      onClick={() => handleBtcReceived('50000000')} // 0.5 BTC in satoshis
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-dashed"
+                    >
+                      [DEV] Simulate BTC Receipt
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* BTC Received & Bridge Option */}
+              {btcReceived && showBridgeOption && (
+                <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <h4 className="font-medium text-green-700 dark:text-green-400">
+                      BTC Received Successfully!
+                    </h4>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between items-start">
+                      <span className="text-muted-foreground">Amount Received:</span>
+                      <span className="font-bold text-green-700 dark:text-green-400">
+                        {receivedBtcAmount ? (parseInt(receivedBtcAmount) / 100000000).toFixed(8) : '0'} BTC
+                      </span>
+                    </div>
+                  </div>
+
+                  {!bridgeCompleted && (
+                    <>
+                      <Alert className="border-blue-500/30 bg-blue-500/10">
+                        <Info className="h-4 w-4 text-blue-500" />
+                        <AlertDescription className="text-blue-700 dark:text-blue-400 text-xs">
+                          Bridge your BTC to Starknet to use it as collateral in Vesu or for other DeFi activities.
+                        </AlertDescription>
+                      </Alert>
+
+                      <Button
+                        onClick={handleBridgeToStarknet}
+                        disabled={bridgeInProgress || atomiqLoading}
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                      >
+                        {bridgeInProgress || atomiqLoading ? (
+                          <>
+                            <Spinner className="mr-2 h-4 w-4" />
+                            Bridging to Starknet...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowDownUp className="mr-2 h-4 w-4" />
+                            Bridge to Starknet
+                          </>
+                        )}
+                      </Button>
+                    </>
+                  )}
+
+                  {bridgeCompleted && (
+                    <Alert className="border-green-500/30 bg-green-500/10">
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      <AlertDescription className="text-green-700 dark:text-green-400">
+                        <div className="space-y-2">
+                          <p className="font-medium">Bridge completed successfully!</p>
+                          <p className="text-xs">
+                            Your wBTC is now available on Starknet. Check your wallet balance.
+                          </p>
+                          {bridgeTxId && (
+                            <p className="text-xs font-mono">
+                              Transaction ID: {bridgeTxId.slice(0, 10)}...{bridgeTxId.slice(-8)}
+                            </p>
+                          )}
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {atomiqError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Bridge error: {atomiqError}
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               )}
 
@@ -1174,6 +1356,7 @@ export function RampTab() {
                 <p>4. Get payment instructions</p>
                 <p>5. Transfer NGN to provided account</p>
                 <p>6. Receive BTC to Lightning address</p>
+                <p>7. Optional: Bridge BTC to Starknet</p>
               </>
             )}
           </CardContent>

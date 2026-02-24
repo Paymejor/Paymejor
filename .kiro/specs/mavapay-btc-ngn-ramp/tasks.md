@@ -259,7 +259,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Test re-confirmation flow
   - _Requirements: 6.3, 6.4_
 
-- [ ] 20. Add integration with existing SwapRouter hook
+- [x] 20. Add integration with existing SwapRouter hook
   - Connect off-ramp flow to SwapRouter for USDT/USDC → wBTC
   - Handle swap completion and trigger MavaPay quote
   - _Requirements: 1.2, 1.3_
@@ -268,7 +268,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - **Property 2: Quote Request After Swap**
   - **Validates: Requirements 1.3**
 
-- [ ] 21. Add integration with existing Atomiq hook
+- [x] 21. Add integration with existing Atomiq hook
   - Connect on-ramp flow to Atomiq for BTC bridging
   - Display bridge option after BTC receipt
   - Update Starknet balance after bridge

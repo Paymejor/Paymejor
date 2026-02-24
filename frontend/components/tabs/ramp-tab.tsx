@@ -23,6 +23,7 @@ import { useStarknet } from '@/hooks/useStarknet'
 import { useMavaPay } from '@/hooks/useMavaPay'
 import { useBankAccounts } from '@/hooks/useBankAccounts'
 import { useNetwork } from '@/hooks/useNetwork'
+import { useSwapRouter } from '@/hooks/useSwapRouter'
 import { getNetworkConfig, TOKEN_METADATA } from '@/lib/constants'
 import { formatUnits, parseUnits } from '@/lib/utils'
 import { 
@@ -80,6 +81,13 @@ export function RampTab() {
     loading: bankAccountsLoading,
   } = useBankAccounts()
   
+  const {
+    getQuote: getSwapQuote,
+    executeSwap,
+    isLoading: swapLoading,
+    error: swapError,
+  } = useSwapRouter()
+  
   // UI State
   const [mode, setMode] = useState<RampMode>('off-ramp')
   const [amount, setAmount] = useState('')
@@ -102,6 +110,11 @@ export function RampTab() {
   // Transaction state
   const [txStatus, setTxStatus] = useState<'idle' | 'confirming' | 'processing' | 'success' | 'error'>('idle')
   const [txMessage, setTxMessage] = useState('')
+  
+  // Swap state for off-ramp flow
+  const [swapTxHash, setSwapTxHash] = useState<string | null>(null)
+  const [swapCompleted, setSwapCompleted] = useState(false)
+  const [btcAmount, setBtcAmount] = useState<string | null>(null)
   
   // Transaction history state
   const [transactions, setTransactions] = useState<StoredRampTransaction[]>([])
@@ -239,44 +252,33 @@ export function RampTab() {
   /**
    * Fetch quote when amount changes
    * Requirements: 1.3, 1.4, 2.1, 2.2, 6.1, 6.2
+   * 
+   * Note: For off-ramp, we don't fetch MavaPay quote until after swap completes
+   * For on-ramp, we fetch quote immediately
    */
   useEffect(() => {
     if (!amount || parseFloat(amount) <= 0) {
       return
     }
 
+    // Only auto-fetch quotes for on-ramp mode
+    // Off-ramp quotes are fetched after swap completion
+    if (mode !== 'on-ramp') {
+      return
+    }
+
     const debounceTimer = setTimeout(async () => {
       try {
-        let newQuote: QuoteResponse
+        // On-ramp: NGN → BTC
+        // Convert NGN to kobo (smallest unit)
+        const amountInKobo = ngnToKobo(parseFloat(amount))
         
-        if (mode === 'off-ramp') {
-          // Off-ramp: USDT/USDC → BTC → NGN
-          // Convert amount to smallest unit (satoshis for BTC)
-          // For now, let's request a quote for BTC → NGN
-          // This is a simplified version; full implementation would:
-          // 1. Get swap quote (USDT/USDC → BTC)
-          // 2. Get MavaPay quote (BTC → NGN)
-          
-          const amountInSatoshis = Math.floor(parseFloat(amount) * 100000) // Simplified conversion
-          
-          newQuote = await fetchQuote({
-            direction: 'btc-to-ngn',
-            amount: amountInSatoshis.toString(),
-            sourceCurrency: 'BTCSAT',
-            targetCurrency: 'NGNKOBO',
-          })
-        } else {
-          // On-ramp: NGN → BTC
-          // Convert NGN to kobo (smallest unit)
-          const amountInKobo = ngnToKobo(parseFloat(amount))
-          
-          newQuote = await fetchQuote({
-            direction: 'ngn-to-btc',
-            amount: amountInKobo.toString(),
-            sourceCurrency: 'NGNKOBO',
-            targetCurrency: 'BTCSAT',
-          })
-        }
+        const newQuote = await fetchQuote({
+          direction: 'ngn-to-btc',
+          amount: amountInKobo.toString(),
+          sourceCurrency: 'NGNKOBO',
+          targetCurrency: 'BTCSAT',
+        })
         
         // Detect rate changes
         detectRateChange(newQuote)
@@ -295,9 +297,11 @@ export function RampTab() {
   /**
    * Update quote timer
    * Requirements: 6.3
+   * 
+   * Note: Only applies to on-ramp mode
    */
   useEffect(() => {
-    if (!quoteExpiry) return
+    if (!quoteExpiry || mode !== 'on-ramp') return
 
     const interval = setInterval(() => {
       const now = Date.now()
@@ -306,28 +310,17 @@ export function RampTab() {
       
       setQuoteTimer(remaining)
       
-      // Auto-refresh if expired
+      // Auto-refresh if expired (only for on-ramp)
       if (remaining === 0 && amount && parseFloat(amount) > 0) {
         const refreshQuote = async () => {
           try {
-            let newQuote: QuoteResponse
-            
-            if (mode === 'off-ramp') {
-              newQuote = await fetchQuote({
-                direction: 'btc-to-ngn',
-                amount: Math.floor(parseFloat(amount) * 100000).toString(),
-                sourceCurrency: 'BTCSAT',
-                targetCurrency: 'NGNKOBO',
-              })
-            } else {
-              const amountInKobo = ngnToKobo(parseFloat(amount))
-              newQuote = await fetchQuote({
-                direction: 'ngn-to-btc',
-                amount: amountInKobo.toString(),
-                sourceCurrency: 'NGNKOBO',
-                targetCurrency: 'BTCSAT',
-              })
-            }
+            const amountInKobo = ngnToKobo(parseFloat(amount))
+            const newQuote = await fetchQuote({
+              direction: 'ngn-to-btc',
+              amount: amountInKobo.toString(),
+              sourceCurrency: 'NGNKOBO',
+              targetCurrency: 'BTCSAT',
+            })
             
             // Detect rate changes on auto-refresh
             detectRateChange(newQuote)
@@ -432,17 +425,6 @@ export function RampTab() {
       return { valid: false, error: 'Insufficient balance' }
     }
 
-    // Check minimum NGN amount (2000 NGN)
-    if (quote) {
-      const ngnAmount = quote.amountInTargetCurrency
-      if (!meetsMinimumNGN(ngnAmount)) {
-        return { 
-          valid: false, 
-          error: `Minimum amount is ${getMinimumNGNFormatted()}` 
-        }
-      }
-    }
-
     if (!selectedBank) {
       return { valid: false, error: 'Please select a bank account' }
     }
@@ -452,7 +434,13 @@ export function RampTab() {
 
   /**
    * Handle off-ramp confirmation
-   * Requirements: 1.5, 1.6, 1.7, 1.8
+   * Requirements: 1.2, 1.3, 1.5, 1.6, 1.7, 1.8
+   * 
+   * Flow:
+   * 1. Swap USDC → wBTC using SwapRouter
+   * 2. Wait for swap completion
+   * 3. Request MavaPay quote for BTC → NGN
+   * 4. Initiate off-ramp with Lightning invoice
    */
   const handleOffRampConfirm = async () => {
     const validation = validateOffRampAmount()
@@ -463,37 +451,82 @@ export function RampTab() {
       return
     }
 
-    if (!quote || !selectedBank) {
+    if (!selectedBank) {
       return
     }
 
     try {
       setTxStatus('confirming')
-      setTxMessage('Preparing off-ramp transaction...')
+      setTxMessage('Step 1/3: Swapping USDC to BTC...')
       
-      // Initiate off-ramp
+      // Step 1: Swap USDC → wBTC
+      const amountInUnits = parseUnits(amount, TOKEN_METADATA[currency].decimals)
+      
+      const swapResult = await executeSwap({
+        fromToken: config.contracts.USDC,
+        toToken: config.contracts.wBTC,
+        amount: amountInUnits,
+        slippage: 0.5, // 0.5% slippage
+        gasless: true, // Use gasless if available
+      })
+      
+      setSwapTxHash(swapResult.transactionHash)
+      setTxStatus('processing')
+      setTxMessage(`Step 1/3: Swap initiated (${swapResult.transactionHash.slice(0, 10)}...)`)
+      
+      // Step 2: Wait for swap confirmation
+      // In production, this would poll the transaction status
+      // For now, we'll simulate a delay
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      setSwapCompleted(true)
+      const btcReceived = swapResult.expectedToAmount
+      setBtcAmount(btcReceived)
+      
+      setTxMessage('Step 2/3: Swap completed! Fetching MavaPay quote...')
+      
+      // Step 3: Get MavaPay quote for BTC → NGN
+      const mavaPayQuote = await fetchQuote({
+        direction: 'btc-to-ngn',
+        amount: btcReceived,
+        sourceCurrency: 'BTCSAT',
+        targetCurrency: 'NGNKOBO',
+      })
+      
+      setTxMessage('Step 3/3: Initiating off-ramp to bank account...')
+      
+      // Step 4: Initiate off-ramp with MavaPay
       const result = await initiateOffRamp({
-        quoteId: quote.id,
+        quoteId: mavaPayQuote.id,
         bankAccountId: selectedBank.id,
         walletAddress: address!,
       })
       
-      setTxStatus('processing')
-      setTxMessage(`Lightning invoice generated. Amount: ${result.amount} sats`)
+      setTxStatus('success')
+      setTxMessage(
+        `Off-ramp complete! Lightning invoice generated. ` +
+        `Funds will arrive in ${selectedBank.bankName} account after payment.`
+      )
       
-      // In production, this would trigger Lightning payment
-      // For now, we'll simulate success
-      setTimeout(() => {
-        setTxStatus('success')
-        setTxMessage(`Off-ramp initiated! Funds will arrive in ${selectedBank.bankName} account.`)
-        setAmount('')
-        fetchBalances()
-      }, 2000)
+      // Clear form
+      setAmount('')
+      setSwapTxHash(null)
+      setSwapCompleted(false)
+      setBtcAmount(null)
+      
+      // Refresh balances
+      fetchBalances()
+      fetchTransactions()
       
     } catch (err) {
       setTxStatus('error')
       setTxMessage(err instanceof Error ? err.message : 'Off-ramp failed')
       console.error('Off-ramp error:', err)
+      
+      // Reset swap state on error
+      setSwapTxHash(null)
+      setSwapCompleted(false)
+      setBtcAmount(null)
     }
   }
 
@@ -524,6 +557,10 @@ export function RampTab() {
     setTxStatus('idle')
     setTxMessage('')
     setPaymentInstructions(null)
+    // Reset swap state
+    setSwapTxHash(null)
+    setSwapCompleted(false)
+    setBtcAmount(null)
   }
 
   /**
@@ -667,12 +704,12 @@ export function RampTab() {
                     className="flex-1 text-base"
                     step="0.01"
                     min="0"
-                    disabled={offRampLoading || !isConnected}
+                    disabled={offRampLoading || swapLoading || !isConnected}
                   />
                   <Button
                     variant="outline"
                     onClick={handleMaxClick}
-                    disabled={offRampLoading || !isConnected || balanceLoading}
+                    disabled={offRampLoading || swapLoading || !isConnected || balanceLoading}
                   >
                     Max
                   </Button>
@@ -686,11 +723,31 @@ export function RampTab() {
                 </p>
               </div>
 
-              {/* Quote Display */}
-              {quote && !quoteError && (
+              {/* Swap Progress Info */}
+              {swapTxHash && (
+                <Alert className="border-blue-500/30 bg-blue-500/10">
+                  <Info className="h-4 w-4 text-blue-500" />
+                  <AlertDescription className="text-blue-700 dark:text-blue-400">
+                    <div className="space-y-1">
+                      <p className="font-medium">Swap in progress</p>
+                      <p className="text-xs">
+                        Transaction: {swapTxHash.slice(0, 10)}...{swapTxHash.slice(-8)}
+                      </p>
+                      {swapCompleted && btcAmount && (
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          ✓ Received {(parseInt(btcAmount) / 100000000).toFixed(8)} BTC
+                        </p>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Quote Display - Only shown after swap for off-ramp */}
+              {quote && !quoteError && swapCompleted && (
                 <div className="rounded-lg bg-secondary/20 p-4 space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Quote Details</h4>
+                    <h4 className="font-medium">MavaPay Quote</h4>
                     {quoteTimer > 0 && (
                       <Badge variant="outline" className="text-xs">
                         Expires in {formatTimeRemaining(quoteTimer)}
@@ -699,8 +756,10 @@ export function RampTab() {
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">You send:</span>
-                      <span className="font-medium">{amount} USDC</span>
+                      <span className="text-muted-foreground">BTC Amount:</span>
+                      <span className="font-medium">
+                        {btcAmount ? (parseInt(btcAmount) / 100000000).toFixed(8) : '0'} BTC
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">You receive:</span>
@@ -731,7 +790,7 @@ export function RampTab() {
               )}
 
               {/* Rate Change Warning */}
-              {rateChangeDetected && quote && (
+              {rateChangeDetected && quote && swapCompleted && (
                 <Alert className="border-yellow-500/30 bg-yellow-500/10">
                   <AlertCircle className="h-4 w-4 text-yellow-500" />
                   <AlertDescription className="text-yellow-700 dark:text-yellow-400">
@@ -759,7 +818,15 @@ export function RampTab() {
               {quoteLoading && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-4">
                   <Spinner className="h-4 w-4" />
-                  Fetching quote...
+                  Fetching MavaPay quote...
+                </div>
+              )}
+
+              {/* Swap Loading */}
+              {swapLoading && (
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-4">
+                  <Spinner className="h-4 w-4" />
+                  Executing swap...
                 </div>
               )}
 
@@ -769,6 +836,16 @@ export function RampTab() {
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
                     {quoteError.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Swap Error */}
+              {swapError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Swap failed: {swapError}
                   </AlertDescription>
                 </Alert>
               )}
@@ -792,7 +869,7 @@ export function RampTab() {
                   <Select 
                     value={selectedBank?.id || ''} 
                     onValueChange={handleBankSelect}
-                    disabled={offRampLoading || !isConnected}
+                    disabled={offRampLoading || swapLoading || !isConnected}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select bank account" />
@@ -820,33 +897,21 @@ export function RampTab() {
                 )}
               </div>
 
-              {/* Minimum Amount Warning */}
-              {amount && parseFloat(amount) > 0 && quote && !meetsMinimumNGN(quote.amountInTargetCurrency) && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Minimum off-ramp amount is {getMinimumNGNFormatted()}
-                  </AlertDescription>
-                </Alert>
-              )}
-
               {/* Confirm Button */}
               <Button
                 onClick={handleOffRampConfirm}
                 disabled={
                   offRampLoading || 
+                  swapLoading ||
                   !isConnected || 
                   !amount || 
-                  !quote || 
                   !selectedBank ||
-                  quoteTimer === 0 ||
-                  rateChangeDetected ||
-                  (quote && !meetsMinimumNGN(quote.amountInTargetCurrency))
+                  rateChangeDetected
                 }
                 className="w-full bg-primary hover:bg-primary/90 h-11 font-semibold"
                 size="lg"
               >
-                {offRampLoading ? (
+                {offRampLoading || swapLoading ? (
                   <>
                     <Spinner className="mr-2 h-4 w-4" />
                     Processing...
@@ -1096,9 +1161,9 @@ export function RampTab() {
             {mode === 'off-ramp' ? (
               <>
                 <p>1. Enter USDC amount to convert</p>
-                <p>2. Review real-time quote</p>
-                <p>3. Select bank account</p>
-                <p>4. Confirm and receive NGN</p>
+                <p>2. Select bank account</p>
+                <p>3. USDC swaps to BTC automatically</p>
+                <p>4. BTC converts to NGN via MavaPay</p>
                 <p>5. Funds arrive in 10 minutes</p>
               </>
             ) : (

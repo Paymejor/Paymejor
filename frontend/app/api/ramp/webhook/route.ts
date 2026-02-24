@@ -9,6 +9,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMavaPayClient } from '@/lib/mavapay-client';
 import { WebhookEvent, WebhookError } from '@/types/mavapay';
+import {
+  checkWebhookRateLimit,
+  logTransactionStatusUpdate,
+  logRateLimitExceeded,
+  logApiError,
+  createAuditLog,
+  logAudit,
+} from '@/lib/ramp-security';
 
 /**
  * Verify webhook signature
@@ -45,19 +53,19 @@ async function verifyWebhookSignature(
  * Route webhook event to appropriate handler
  * Requirements: 9.2
  */
-async function routeWebhookEvent(event: WebhookEvent): Promise<void> {
+async function routeWebhookEvent(event: WebhookEvent, request: NextRequest): Promise<void> {
   switch (event.event) {
     case 'payment.received':
-      await handlePaymentReceived(event);
+      await handlePaymentReceived(event, request);
       break;
     case 'payment.sent':
-      await handlePaymentSent(event);
+      await handlePaymentSent(event, request);
       break;
     case 'payout.completed':
-      await handlePayoutCompleted(event);
+      await handlePayoutCompleted(event, request);
       break;
     case 'payout.failed':
-      await handlePayoutFailed(event);
+      await handlePayoutFailed(event, request);
       break;
     default:
       console.warn(`Unknown webhook event type: ${event.event}`);
@@ -68,13 +76,19 @@ async function routeWebhookEvent(event: WebhookEvent): Promise<void> {
  * Handle payment.received event (on-ramp NGN received)
  * Requirements: 9.2, 9.3
  */
-async function handlePaymentReceived(event: WebhookEvent): Promise<void> {
-  console.log('Processing payment.received event:', {
-    orderId: event.data.transactionMetadata.orderId,
-    hash: event.data.hash,
-    amount: event.data.amount,
+async function handlePaymentReceived(event: WebhookEvent, request: NextRequest): Promise<void> {
+  // Log webhook event (Requirements: 10.6)
+  const auditEntry = createAuditLog('webhook_received', request, {
+    transactionId: event.data.transactionMetadata.orderId,
+    amount: event.data.amount.toString(),
     currency: event.data.currency,
+    status: 'payment_received',
+    metadata: {
+      event: 'payment.received',
+      hash: event.data.hash,
+    },
   });
+  logAudit(auditEntry);
 
   // Update transaction status to "NGN Received"
   // Note: In a real implementation, this would update a database
@@ -91,13 +105,19 @@ async function handlePaymentReceived(event: WebhookEvent): Promise<void> {
  * Handle payment.sent event (off-ramp BTC sent)
  * Requirements: 9.2, 9.3
  */
-async function handlePaymentSent(event: WebhookEvent): Promise<void> {
-  console.log('Processing payment.sent event:', {
-    orderId: event.data.transactionMetadata.orderId,
-    hash: event.data.hash,
-    amount: event.data.amount,
+async function handlePaymentSent(event: WebhookEvent, request: NextRequest): Promise<void> {
+  // Log webhook event (Requirements: 10.6)
+  const auditEntry = createAuditLog('webhook_received', request, {
+    transactionId: event.data.transactionMetadata.orderId,
+    amount: event.data.amount.toString(),
     currency: event.data.currency,
+    status: 'payment_sent',
+    metadata: {
+      event: 'payment.sent',
+      hash: event.data.hash,
+    },
   });
+  logAudit(auditEntry);
 
   // Update transaction status to "BTC Sent"
   await storeWebhookEvent(event);
@@ -107,15 +127,21 @@ async function handlePaymentSent(event: WebhookEvent): Promise<void> {
  * Handle payout.completed event (off-ramp completed)
  * Requirements: 9.2, 9.4
  */
-async function handlePayoutCompleted(event: WebhookEvent): Promise<void> {
-  console.log('Processing payout.completed event:', {
-    orderId: event.data.transactionMetadata.orderId,
-    hash: event.data.hash,
-    amount: event.data.amount,
+async function handlePayoutCompleted(event: WebhookEvent, request: NextRequest): Promise<void> {
+  // Log webhook event (Requirements: 10.6)
+  const auditEntry = createAuditLog('webhook_received', request, {
+    transactionId: event.data.transactionMetadata.orderId,
+    amount: event.data.amount.toString(),
     currency: event.data.currency,
-    bankName: event.data.transactionMetadata.bankName,
-    bankAccountNumber: event.data.transactionMetadata.bankAccountNumber,
+    status: 'completed',
+    metadata: {
+      event: 'payout.completed',
+      hash: event.data.hash,
+      bankName: event.data.transactionMetadata.bankName,
+      // Note: Bank account number is sanitized in log
+    },
   });
+  logAudit(auditEntry);
 
   // Update transaction status to "Completed"
   await storeWebhookEvent(event);
@@ -125,14 +151,20 @@ async function handlePayoutCompleted(event: WebhookEvent): Promise<void> {
  * Handle payout.failed event (off-ramp failed)
  * Requirements: 9.2, 9.4
  */
-async function handlePayoutFailed(event: WebhookEvent): Promise<void> {
-  console.error('Processing payout.failed event:', {
-    orderId: event.data.transactionMetadata.orderId,
-    hash: event.data.hash,
-    amount: event.data.amount,
+async function handlePayoutFailed(event: WebhookEvent, request: NextRequest): Promise<void> {
+  // Log webhook event (Requirements: 10.6)
+  const auditEntry = createAuditLog('webhook_received', request, {
+    transactionId: event.data.transactionMetadata.orderId,
+    amount: event.data.amount.toString(),
     currency: event.data.currency,
-    status: event.data.status,
+    status: 'failed',
+    error: `Payout failed with status: ${event.data.status}`,
+    metadata: {
+      event: 'payout.failed',
+      hash: event.data.hash,
+    },
   });
+  logAudit(auditEntry);
 
   // Update transaction status to "Failed"
   await storeWebhookEvent(event);
@@ -168,12 +200,13 @@ async function storeWebhookEvent(event: WebhookEvent): Promise<void> {
  */
 async function processWebhookWithRetry(
   event: WebhookEvent,
+  request: NextRequest,
   attempt: number = 1
 ): Promise<void> {
   const maxAttempts = 3;
   
   try {
-    await routeWebhookEvent(event);
+    await routeWebhookEvent(event, request);
   } catch (error) {
     console.error(`Webhook processing failed (attempt ${attempt}/${maxAttempts}):`, error);
     
@@ -182,16 +215,14 @@ async function processWebhookWithRetry(
       const delay = Math.pow(2, attempt - 1) * 1000;
       await new Promise(resolve => setTimeout(resolve, delay));
       
-      return processWebhookWithRetry(event, attempt + 1);
+      return processWebhookWithRetry(event, request, attempt + 1);
     }
     
     // After max retries, log error and continue
     // The system will fall back to API polling
-    console.error('Webhook processing failed after max retries:', {
-      event: event.event,
-      orderId: event.data.transactionMetadata.orderId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    if (error instanceof Error) {
+      logApiError(request, error, '/api/ramp/webhook', undefined, event.data.transactionMetadata.orderId);
+    }
     
     throw new WebhookError(
       event.data.id,
@@ -219,6 +250,25 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   try {
+    // Check rate limit (Requirements: 10.5)
+    const rateLimitCheck = checkWebhookRateLimit(request);
+    if (!rateLimitCheck.allowed) {
+      logRateLimitExceeded(request, '/api/ramp/webhook', 'webhook', rateLimitCheck.retryAfter || 0);
+      
+      return NextResponse.json(
+        {
+          error: 'Rate Limit Exceeded',
+          message: rateLimitCheck.error,
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': rateLimitCheck.retryAfter?.toString() || '60',
+          },
+        }
+      );
+    }
+
     // Read raw body for signature verification
     const rawBody = await request.text();
     
@@ -256,7 +306,7 @@ export async function POST(request: NextRequest) {
 
     // Process webhook with retry logic (Requirements: 9.2, 9.3, 9.4, 9.5)
     // Use Promise.race to ensure we respond within 5 seconds (Requirements: 9.6)
-    const processingPromise = processWebhookWithRetry(event);
+    const processingPromise = processWebhookWithRetry(event, request);
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Processing timeout')), 4500); // 4.5s to leave buffer
     });
@@ -279,7 +329,6 @@ export async function POST(request: NextRequest) {
 
     // Calculate response time
     const responseTime = Date.now() - startTime;
-    console.log(`Webhook processed in ${responseTime}ms`);
 
     // Respond with 200 OK within 5 seconds (Requirements: 9.6)
     return NextResponse.json(
@@ -288,16 +337,18 @@ export async function POST(request: NextRequest) {
         status: 200,
         headers: {
           'Cache-Control': 'no-store, max-age=0',
+          'X-Response-Time': `${responseTime}ms`,
         },
       }
     );
 
   } catch (error: unknown) {
-    console.error('Webhook endpoint error:', error);
-
-    // Calculate response time
     const responseTime = Date.now() - startTime;
-    console.log(`Webhook error response in ${responseTime}ms`);
+
+    // Log error (Requirements: 10.6, 10.7)
+    if (error instanceof Error) {
+      logApiError(request, error, '/api/ramp/webhook');
+    }
 
     // Handle webhook errors
     if (error instanceof WebhookError) {
@@ -306,7 +357,12 @@ export async function POST(request: NextRequest) {
           error: 'Webhook Processing Error',
           message: error.message,
         },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'X-Response-Time': `${responseTime}ms`,
+          },
+        }
       );
     }
 
@@ -316,7 +372,12 @@ export async function POST(request: NextRequest) {
         error: 'Internal Server Error',
         message: error instanceof Error ? error.message : 'An unexpected error occurred',
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'X-Response-Time': `${responseTime}ms`,
+        },
+      }
     );
   }
 }

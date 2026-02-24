@@ -14,6 +14,13 @@ import {
   ValidationError,
   StoredRampTransaction,
 } from '@/types/mavapay';
+import {
+  checkOnRampRateLimit,
+  logTransactionAttempt,
+  logRateLimitExceeded,
+  logValidationError,
+  logApiError,
+} from '@/lib/ramp-security';
 
 /**
  * Validate on-ramp request parameters
@@ -88,9 +95,32 @@ function validateOnRampRequest(body: any): OnRampRequest {
  * 6. Wait for webhook confirmation of NGN receipt (handled separately)
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Parse request body
     const body = await request.json();
+
+    // Check rate limit (Requirements: 10.5)
+    const rateLimitCheck = checkOnRampRateLimit(request, body.walletAddress);
+    if (!rateLimitCheck.allowed) {
+      logRateLimitExceeded(request, '/api/ramp/on-ramp', body.walletAddress || 'unknown', rateLimitCheck.retryAfter || 0);
+      
+      return NextResponse.json(
+        {
+          error: 'Rate Limit Exceeded',
+          message: rateLimitCheck.error,
+          retryAfter: rateLimitCheck.retryAfter,
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': rateLimitCheck.retryAfter?.toString() || '60',
+            'X-RateLimit-Remaining': rateLimitCheck.remaining?.toString() || '0',
+          },
+        }
+      );
+    }
 
     // Validate request (Requirements: 2.1)
     const validatedRequest = validateOnRampRequest(body);
@@ -168,6 +198,17 @@ export async function POST(request: NextRequest) {
       expiresAt: quote.expiry,
     };
 
+    // Log successful on-ramp initiation (Requirements: 10.6)
+    const duration = Date.now() - startTime;
+    logTransactionAttempt(
+      request,
+      'on-ramp',
+      body.walletAddress || 'unknown',
+      validatedRequest.amount,
+      'NGNKOBO',
+      transactionRecord.id
+    );
+
     return NextResponse.json({
       ...response,
       transaction: transactionRecord,
@@ -175,14 +216,23 @@ export async function POST(request: NextRequest) {
       status: 200,
       headers: {
         'Cache-Control': 'no-store, max-age=0',
+        'X-RateLimit-Remaining': rateLimitCheck.remaining?.toString() || '0',
+        'X-Response-Time': `${duration}ms`,
       },
     });
 
   } catch (error: unknown) {
-    console.error('On-ramp API error:', error);
+    const duration = Date.now() - startTime;
+    
+    // Log error (Requirements: 10.6, 10.7)
+    if (error instanceof Error) {
+      logApiError(request, error, '/api/ramp/on-ramp');
+    }
 
     // Handle validation errors
     if (error instanceof ValidationError) {
+      logValidationError(request, error.field, error.message);
+      
       return NextResponse.json(
         {
           error: 'Validation Error',
@@ -190,7 +240,12 @@ export async function POST(request: NextRequest) {
           message: error.message,
           suggestion: error.suggestion,
         },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'X-Response-Time': `${duration}ms`,
+          },
+        }
       );
     }
 
@@ -204,7 +259,12 @@ export async function POST(request: NextRequest) {
           message: apiError.message,
           retryable: apiError.retryable || false,
         },
-        { status: apiError.statusCode >= 500 ? 502 : apiError.statusCode }
+        { 
+          status: apiError.statusCode >= 500 ? 502 : apiError.statusCode,
+          headers: {
+            'X-Response-Time': `${duration}ms`,
+          },
+        }
       );
     }
 
@@ -214,7 +274,12 @@ export async function POST(request: NextRequest) {
         error: 'Internal Server Error',
         message: error instanceof Error ? error.message : 'An unexpected error occurred',
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'X-Response-Time': `${duration}ms`,
+        },
+      }
     );
   }
 }

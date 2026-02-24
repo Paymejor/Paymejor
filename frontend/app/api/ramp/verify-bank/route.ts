@@ -9,6 +9,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMavaPayClient } from '@/lib/mavapay-client';
 import { BankVerificationParams, BankVerificationResponse, ValidationError } from '@/types/mavapay';
+import {
+  checkBankRateLimit,
+  logRateLimitExceeded,
+  logValidationError,
+  logApiError,
+  createAuditLog,
+  logAudit,
+} from '@/lib/ramp-security';
 
 /**
  * Validate bank account number format
@@ -95,9 +103,32 @@ function validateVerificationRequest(body: any): BankVerificationParams {
  * }
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Parse request body
     const body = await request.json();
+
+    // Check rate limit (Requirements: 10.5)
+    const rateLimitCheck = checkBankRateLimit(request, body.walletAddress);
+    if (!rateLimitCheck.allowed) {
+      logRateLimitExceeded(request, '/api/ramp/verify-bank', body.walletAddress || 'unknown', rateLimitCheck.retryAfter || 0);
+      
+      return NextResponse.json(
+        {
+          error: 'Rate Limit Exceeded',
+          message: rateLimitCheck.error,
+          retryAfter: rateLimitCheck.retryAfter,
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': rateLimitCheck.retryAfter?.toString() || '60',
+            'X-RateLimit-Remaining': rateLimitCheck.remaining?.toString() || '0',
+          },
+        }
+      );
+    }
 
     // Validate request
     const validatedRequest = validateVerificationRequest(body);
@@ -112,20 +143,42 @@ export async function POST(request: NextRequest) {
     // Call MavaPay API to verify bank account
     const verificationResult = await client.verifyBankAccount(validatedRequest);
 
+    // Log bank verification (Requirements: 10.6)
+    // Note: Account number is sanitized in logs
+    const duration = Date.now() - startTime;
+    const auditEntry = createAuditLog('bank_verification', request, {
+      walletAddress: body.walletAddress,
+      status: verificationResult.isValid ? 'verified' : 'failed',
+      metadata: {
+        bankCode: validatedRequest.bankCode,
+        // Account number will be sanitized automatically
+      },
+    });
+    logAudit(auditEntry);
+
     // Return formatted response
     return NextResponse.json<BankVerificationResponse>(verificationResult, {
       status: 200,
       headers: {
         // Don't cache verification results as they may change
         'Cache-Control': 'no-store, max-age=0',
+        'X-RateLimit-Remaining': rateLimitCheck.remaining?.toString() || '0',
+        'X-Response-Time': `${duration}ms`,
       },
     });
 
   } catch (error: unknown) {
-    console.error('Bank verification API error:', error);
+    const duration = Date.now() - startTime;
+    
+    // Log error (Requirements: 10.6, 10.7)
+    if (error instanceof Error) {
+      logApiError(request, error, '/api/ramp/verify-bank');
+    }
 
     // Handle validation errors
     if (error instanceof ValidationError) {
+      logValidationError(request, error.field, error.message);
+      
       return NextResponse.json(
         {
           error: 'Validation Error',
@@ -133,7 +186,12 @@ export async function POST(request: NextRequest) {
           message: error.message,
           suggestion: error.suggestion,
         },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'X-Response-Time': `${duration}ms`,
+          },
+        }
       );
     }
 
@@ -147,7 +205,12 @@ export async function POST(request: NextRequest) {
           message: apiError.message,
           retryable: apiError.retryable || false,
         },
-        { status: apiError.statusCode >= 500 ? 502 : apiError.statusCode }
+        { 
+          status: apiError.statusCode >= 500 ? 502 : apiError.statusCode,
+          headers: {
+            'X-Response-Time': `${duration}ms`,
+          },
+        }
       );
     }
 
@@ -157,7 +220,12 @@ export async function POST(request: NextRequest) {
         error: 'Internal Server Error',
         message: error instanceof Error ? error.message : 'An unexpected error occurred',
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'X-Response-Time': `${duration}ms`,
+        },
+      }
     );
   }
 }

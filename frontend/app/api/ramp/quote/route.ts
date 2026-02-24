@@ -9,6 +9,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMavaPayClient } from '@/lib/mavapay-client';
 import { QuoteRequest, QuoteResponse, ValidationError } from '@/types/mavapay';
+import { 
+  checkQuoteRateLimit, 
+  logTransactionAttempt, 
+  logRateLimitExceeded,
+  logValidationError,
+  logApiError,
+} from '@/lib/ramp-security';
 
 /**
  * Validate quote request parameters
@@ -93,9 +100,32 @@ function validateQuoteRequest(body: any): QuoteRequest {
  * Requirements: 1.3, 1.4, 2.1, 2.2, 3.3
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Parse request body
     const body = await request.json();
+
+    // Check rate limit (Requirements: 10.5)
+    const rateLimitCheck = checkQuoteRateLimit(request, body.walletAddress);
+    if (!rateLimitCheck.allowed) {
+      logRateLimitExceeded(request, '/api/ramp/quote', body.walletAddress || 'unknown', rateLimitCheck.retryAfter || 0);
+      
+      return NextResponse.json(
+        {
+          error: 'Rate Limit Exceeded',
+          message: rateLimitCheck.error,
+          retryAfter: rateLimitCheck.retryAfter,
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': rateLimitCheck.retryAfter?.toString() || '60',
+            'X-RateLimit-Remaining': rateLimitCheck.remaining?.toString() || '0',
+          },
+        }
+      );
+    }
 
     // Validate request
     const validatedRequest = validateQuoteRequest(body);
@@ -118,19 +148,39 @@ export async function POST(request: NextRequest) {
     // Call MavaPay API
     const quote = await client.createQuote(quoteParams);
 
+    // Log successful quote request (Requirements: 10.6)
+    const duration = Date.now() - startTime;
+    logTransactionAttempt(
+      request,
+      'quote',
+      body.walletAddress || 'unknown',
+      validatedRequest.amount,
+      validatedRequest.sourceCurrency,
+      quote.id
+    );
+
     // Return formatted response
     return NextResponse.json<QuoteResponse>(quote, {
       status: 200,
       headers: {
         'Cache-Control': 'no-store, max-age=0',
+        'X-RateLimit-Remaining': rateLimitCheck.remaining?.toString() || '0',
+        'X-Response-Time': `${duration}ms`,
       },
     });
 
   } catch (error: unknown) {
-    console.error('Quote API error:', error);
+    const duration = Date.now() - startTime;
+    
+    // Log error (Requirements: 10.6, 10.7)
+    if (error instanceof Error) {
+      logApiError(request, error, '/api/ramp/quote');
+    }
 
     // Handle validation errors
     if (error instanceof ValidationError) {
+      logValidationError(request, error.field, error.message);
+      
       return NextResponse.json(
         {
           error: 'Validation Error',
@@ -138,7 +188,12 @@ export async function POST(request: NextRequest) {
           message: error.message,
           suggestion: error.suggestion,
         },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'X-Response-Time': `${duration}ms`,
+          },
+        }
       );
     }
 
@@ -152,7 +207,12 @@ export async function POST(request: NextRequest) {
           message: apiError.message,
           retryable: apiError.retryable || false,
         },
-        { status: apiError.statusCode >= 500 ? 502 : apiError.statusCode }
+        { 
+          status: apiError.statusCode >= 500 ? 502 : apiError.statusCode,
+          headers: {
+            'X-Response-Time': `${duration}ms`,
+          },
+        }
       );
     }
 
@@ -162,7 +222,12 @@ export async function POST(request: NextRequest) {
         error: 'Internal Server Error',
         message: error instanceof Error ? error.message : 'An unexpected error occurred',
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'X-Response-Time': `${duration}ms`,
+        },
+      }
     );
   }
 }

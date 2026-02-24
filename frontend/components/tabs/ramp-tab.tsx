@@ -95,6 +95,9 @@ export function RampTab() {
   // Quote state
   const [quoteExpiry, setQuoteExpiry] = useState<Date | null>(null)
   const [quoteTimer, setQuoteTimer] = useState<number>(0)
+  const [previousQuote, setPreviousQuote] = useState<QuoteResponse | null>(null)
+  const [rateChangeDetected, setRateChangeDetected] = useState(false)
+  const [rateChangePercentage, setRateChangePercentage] = useState(0)
   
   // Transaction state
   const [txStatus, setTxStatus] = useState<'idle' | 'confirming' | 'processing' | 'success' | 'error'>('idle')
@@ -191,6 +194,49 @@ export function RampTab() {
   }
 
   /**
+   * Calculate rate change percentage
+   * Requirements: 6.4
+   */
+  const calculateRateChange = useCallback((oldRate: number, newRate: number): number => {
+    if (oldRate === 0) return 0
+    return Math.abs((newRate - oldRate) / oldRate) * 100
+  }, [])
+
+  /**
+   * Detect significant rate changes (>2%)
+   * Requirements: 6.4
+   */
+  const detectRateChange = useCallback((newQuote: QuoteResponse) => {
+    if (!previousQuote) {
+      setPreviousQuote(newQuote)
+      setRateChangeDetected(false)
+      setRateChangePercentage(0)
+      return
+    }
+
+    const rateChange = calculateRateChange(previousQuote.exchangeRate, newQuote.exchangeRate)
+    
+    if (rateChange > 2) {
+      setRateChangeDetected(true)
+      setRateChangePercentage(rateChange)
+    } else {
+      setRateChangeDetected(false)
+      setRateChangePercentage(0)
+    }
+    
+    setPreviousQuote(newQuote)
+  }, [previousQuote, calculateRateChange])
+
+  /**
+   * Handle rate change confirmation
+   * Requirements: 6.4
+   */
+  const handleRateChangeConfirm = useCallback(() => {
+    setRateChangeDetected(false)
+    setRateChangePercentage(0)
+  }, [])
+
+  /**
    * Fetch quote when amount changes
    * Requirements: 1.3, 1.4, 2.1, 2.2, 6.1, 6.2
    */
@@ -201,6 +247,8 @@ export function RampTab() {
 
     const debounceTimer = setTimeout(async () => {
       try {
+        let newQuote: QuoteResponse
+        
         if (mode === 'off-ramp') {
           // Off-ramp: USDT/USDC → BTC → NGN
           // Convert amount to smallest unit (satoshis for BTC)
@@ -211,7 +259,7 @@ export function RampTab() {
           
           const amountInSatoshis = Math.floor(parseFloat(amount) * 100000) // Simplified conversion
           
-          await fetchQuote({
+          newQuote = await fetchQuote({
             direction: 'btc-to-ngn',
             amount: amountInSatoshis.toString(),
             sourceCurrency: 'BTCSAT',
@@ -222,13 +270,16 @@ export function RampTab() {
           // Convert NGN to kobo (smallest unit)
           const amountInKobo = ngnToKobo(parseFloat(amount))
           
-          await fetchQuote({
+          newQuote = await fetchQuote({
             direction: 'ngn-to-btc',
             amount: amountInKobo.toString(),
             sourceCurrency: 'NGNKOBO',
             targetCurrency: 'BTCSAT',
           })
         }
+        
+        // Detect rate changes
+        detectRateChange(newQuote)
         
         // Set quote expiry (5 minutes from now)
         const expiry = new Date(Date.now() + 5 * 60 * 1000)
@@ -239,7 +290,7 @@ export function RampTab() {
     }, 500) // Debounce for 500ms
 
     return () => clearTimeout(debounceTimer)
-  }, [amount, mode, fetchQuote])
+  }, [amount, mode, fetchQuote, detectRateChange])
 
   /**
    * Update quote timer
@@ -257,30 +308,43 @@ export function RampTab() {
       
       // Auto-refresh if expired
       if (remaining === 0 && amount && parseFloat(amount) > 0) {
-        if (mode === 'off-ramp') {
-          fetchQuote({
-            direction: 'btc-to-ngn',
-            amount: Math.floor(parseFloat(amount) * 100000).toString(),
-            sourceCurrency: 'BTCSAT',
-            targetCurrency: 'NGNKOBO',
-          })
-        } else {
-          const amountInKobo = ngnToKobo(parseFloat(amount))
-          fetchQuote({
-            direction: 'ngn-to-btc',
-            amount: amountInKobo.toString(),
-            sourceCurrency: 'NGNKOBO',
-            targetCurrency: 'BTCSAT',
-          })
+        const refreshQuote = async () => {
+          try {
+            let newQuote: QuoteResponse
+            
+            if (mode === 'off-ramp') {
+              newQuote = await fetchQuote({
+                direction: 'btc-to-ngn',
+                amount: Math.floor(parseFloat(amount) * 100000).toString(),
+                sourceCurrency: 'BTCSAT',
+                targetCurrency: 'NGNKOBO',
+              })
+            } else {
+              const amountInKobo = ngnToKobo(parseFloat(amount))
+              newQuote = await fetchQuote({
+                direction: 'ngn-to-btc',
+                amount: amountInKobo.toString(),
+                sourceCurrency: 'NGNKOBO',
+                targetCurrency: 'BTCSAT',
+              })
+            }
+            
+            // Detect rate changes on auto-refresh
+            detectRateChange(newQuote)
+            
+            const newExpiry = new Date(Date.now() + 5 * 60 * 1000)
+            setQuoteExpiry(newExpiry)
+          } catch (err) {
+            console.error('Error refreshing quote:', err)
+          }
         }
         
-        const newExpiry = new Date(Date.now() + 5 * 60 * 1000)
-        setQuoteExpiry(newExpiry)
+        refreshQuote()
       }
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [quoteExpiry, amount, mode, fetchQuote])
+  }, [quoteExpiry, amount, mode, fetchQuote, detectRateChange])
 
   /**
    * Validate on-ramp amount
@@ -454,6 +518,9 @@ export function RampTab() {
     // Note: quote is managed by useMavaPay hook and will be cleared when amount is reset
     setQuoteExpiry(null)
     setQuoteTimer(0)
+    setPreviousQuote(null)
+    setRateChangeDetected(false)
+    setRateChangePercentage(0)
     setTxStatus('idle')
     setTxMessage('')
     setPaymentInstructions(null)
@@ -663,6 +730,31 @@ export function RampTab() {
                 </div>
               )}
 
+              {/* Rate Change Warning */}
+              {rateChangeDetected && quote && (
+                <Alert className="border-yellow-500/30 bg-yellow-500/10">
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+                    <div className="space-y-2">
+                      <p className="font-medium">
+                        Exchange rate changed by {rateChangePercentage.toFixed(2)}%
+                      </p>
+                      <p className="text-sm">
+                        The exchange rate has changed significantly since your last quote. 
+                        Please review the new rate and confirm to proceed.
+                      </p>
+                      <Button
+                        onClick={handleRateChangeConfirm}
+                        size="sm"
+                        className="mt-2 bg-yellow-600 hover:bg-yellow-700"
+                      >
+                        I Understand, Continue
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Quote Loading */}
               {quoteLoading && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-4">
@@ -748,6 +840,7 @@ export function RampTab() {
                   !quote || 
                   !selectedBank ||
                   quoteTimer === 0 ||
+                  rateChangeDetected ||
                   (quote && !meetsMinimumNGN(quote.amountInTargetCurrency))
                 }
                 className="w-full bg-primary hover:bg-primary/90 h-11 font-semibold"
@@ -901,6 +994,31 @@ export function RampTab() {
                 </div>
               )}
 
+              {/* Rate Change Warning */}
+              {rateChangeDetected && quote && !paymentInstructions && (
+                <Alert className="border-yellow-500/30 bg-yellow-500/10">
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <AlertDescription className="text-yellow-700 dark:text-yellow-400">
+                    <div className="space-y-2">
+                      <p className="font-medium">
+                        Exchange rate changed by {rateChangePercentage.toFixed(2)}%
+                      </p>
+                      <p className="text-sm">
+                        The exchange rate has changed significantly since your last quote. 
+                        Please review the new rate and confirm to proceed.
+                      </p>
+                      <Button
+                        onClick={handleRateChangeConfirm}
+                        size="sm"
+                        className="mt-2 bg-yellow-600 hover:bg-yellow-700"
+                      >
+                        I Understand, Continue
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Quote Loading */}
               {quoteLoading && (
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground py-4">
@@ -940,6 +1058,7 @@ export function RampTab() {
                     !lightningAddress ||
                     !quote || 
                     quoteTimer === 0 ||
+                    rateChangeDetected ||
                     !meetsMinimumNGN(ngnToKobo(parseFloat(amount) || 0))
                   }
                   className="w-full bg-primary hover:bg-primary/90 h-11 font-semibold"

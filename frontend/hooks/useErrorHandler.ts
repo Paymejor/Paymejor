@@ -203,3 +203,78 @@ export function createBalanceValidator(
     return null
   }
 }
+
+/**
+ * MavaPay-specific validators (Requirements 7.1, 7.2, 7.3, 4.1)
+ */
+
+export function createMinimumAmountValidator(
+  amountInKobo: number,
+  minimumKobo: number = 200000 // 2000 NGN
+) {
+  return () => {
+    if (amountInKobo < minimumKobo) {
+      return new AppError(
+        ErrorType.MINIMUM_AMOUNT_NOT_MET,
+        ERROR_MESSAGES[ErrorType.MINIMUM_AMOUNT_NOT_MET],
+        undefined,
+        { amountInKobo, minimumKobo }
+      )
+    }
+    return null
+  }
+}
+
+export function createMaximumAmountValidator(
+  amountInKobo: number,
+  maximumKobo: number
+) {
+  return () => {
+    if (amountInKobo > maximumKobo) {
+      return new AppError(
+        ErrorType.MAXIMUM_AMOUNT_EXCEEDED,
+        ERROR_MESSAGES[ErrorType.MAXIMUM_AMOUNT_EXCEEDED],
+        undefined,
+        { amountInKobo, maximumKobo }
+      )
+    }
+    return null
+  }
+}
+
+export function createBankAccountValidator(
+  accountNumber: string,
+  bankName: string
+) {
+  return () => {
+    // Validate account number is 10 digits (Requirement 4.1)
+    if (!/^\d{10}$/.test(accountNumber)) {
+      return new AppError(
+        ErrorType.INVALID_BANK_ACCOUNT,
+        'Bank account number must be exactly 10 digits',
+        undefined,
+        { accountNumber, bankName }
+      )
+    }
+    return null
+  }
+}
+
+export function createQuoteExpiryValidator(
+  quoteExpiry: string
+) {
+  return () => {
+    const expiryTime = new Date(quoteExpiry).getTime()
+    const now = Date.now()
+    
+    if (now >= expiryTime) {
+      return new AppError(
+        ErrorType.QUOTE_EXPIRED,
+        ERROR_MESSAGES[ErrorType.QUOTE_EXPIRED],
+        undefined,
+        { quoteExpiry, now: new Date(now).toISOString() }
+      )
+    }
+    return null
+  }
+}

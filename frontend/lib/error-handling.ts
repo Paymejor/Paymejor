@@ -24,6 +24,15 @@ export enum ErrorType {
   RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
   TIMEOUT = 'TIMEOUT',
   UNKNOWN = 'UNKNOWN',
+  // MavaPay-specific errors (Requirements 8.1-8.5)
+  LIGHTNING_PAYMENT_FAILED = 'LIGHTNING_PAYMENT_FAILED',
+  BANK_PAYOUT_FAILED = 'BANK_PAYOUT_FAILED',
+  INVALID_BANK_ACCOUNT = 'INVALID_BANK_ACCOUNT',
+  MAVAPAY_API_UNAVAILABLE = 'MAVAPAY_API_UNAVAILABLE',
+  QUOTE_EXPIRED = 'QUOTE_EXPIRED',
+  MINIMUM_AMOUNT_NOT_MET = 'MINIMUM_AMOUNT_NOT_MET',
+  MAXIMUM_AMOUNT_EXCEEDED = 'MAXIMUM_AMOUNT_EXCEEDED',
+  WEBHOOK_NOT_RECEIVED = 'WEBHOOK_NOT_RECEIVED',
 }
 
 /**
@@ -60,6 +69,15 @@ const ERROR_MESSAGES: Record<ErrorType, string> = {
   [ErrorType.RATE_LIMIT_EXCEEDED]: 'Too many requests. Please wait a moment',
   [ErrorType.TIMEOUT]: 'Request timed out. Please try again',
   [ErrorType.UNKNOWN]: 'An unexpected error occurred. Please try again',
+  // MavaPay-specific error messages (Requirements 8.1-8.5)
+  [ErrorType.LIGHTNING_PAYMENT_FAILED]: 'Lightning payment failed. Please check your balance and try again',
+  [ErrorType.BANK_PAYOUT_FAILED]: 'Bank payout failed. Please contact support for assistance',
+  [ErrorType.INVALID_BANK_ACCOUNT]: 'Invalid bank account details. Please verify your account information',
+  [ErrorType.MAVAPAY_API_UNAVAILABLE]: 'MavaPay service is temporarily unavailable. Please try again later',
+  [ErrorType.QUOTE_EXPIRED]: 'Quote has expired. Please request a new quote',
+  [ErrorType.MINIMUM_AMOUNT_NOT_MET]: 'Amount is below the minimum required. Please increase your amount',
+  [ErrorType.MAXIMUM_AMOUNT_EXCEEDED]: 'Amount exceeds the maximum allowed. Please reduce your amount',
+  [ErrorType.WEBHOOK_NOT_RECEIVED]: 'Transaction status update delayed. Please check back in a few minutes',
 }
 
 /**
@@ -95,6 +113,51 @@ const ERROR_SUGGESTIONS: Partial<Record<ErrorType, string[]>> = {
     'Try a smaller trade amount',
     'Wait for better market conditions',
   ],
+  // MavaPay-specific error suggestions (Requirements 8.1-8.5)
+  [ErrorType.LIGHTNING_PAYMENT_FAILED]: [
+    'Verify you have sufficient BTC balance',
+    'Check your Lightning wallet connection',
+    'Try the transaction again',
+    'Contact support if the issue persists',
+  ],
+  [ErrorType.BANK_PAYOUT_FAILED]: [
+    'Verify your bank account details are correct',
+    'Contact MavaPay support: support@mavapay.co',
+    'Check your transaction history for updates',
+  ],
+  [ErrorType.INVALID_BANK_ACCOUNT]: [
+    'Verify your account number is 10 digits',
+    'Ensure you selected the correct bank',
+    'Check that the account name matches your bank records',
+    'Try verifying your account again',
+  ],
+  [ErrorType.MAVAPAY_API_UNAVAILABLE]: [
+    'MavaPay is performing scheduled maintenance',
+    'Service will be restored shortly',
+    'Check status at: https://status.mavapay.co',
+    'Try again in a few minutes',
+  ],
+  [ErrorType.QUOTE_EXPIRED]: [
+    'Quotes are valid for 5 minutes',
+    'Click "Get New Quote" to refresh',
+    'Complete your transaction faster to avoid expiration',
+  ],
+  [ErrorType.MINIMUM_AMOUNT_NOT_MET]: [
+    'Minimum off-ramp amount is ₦2,000',
+    'Increase your amount to meet the minimum',
+    'Consider combining multiple transactions',
+  ],
+  [ErrorType.MAXIMUM_AMOUNT_EXCEEDED]: [
+    'Check the maximum transaction limit',
+    'Split your transaction into smaller amounts',
+    'Contact support for higher limits',
+  ],
+  [ErrorType.WEBHOOK_NOT_RECEIVED]: [
+    'Your transaction is still processing',
+    'Check back in 5-10 minutes',
+    'Transaction status will update automatically',
+    'Contact support if status doesn\'t update after 30 minutes',
+  ],
 }
 
 /**
@@ -109,6 +172,39 @@ export function parseError(error: unknown): AppError {
   // Standard Error
   if (error instanceof Error) {
     const message = error.message.toLowerCase()
+    
+    // MavaPay-specific errors (Requirements 8.1-8.5)
+    if (message.includes('lightning payment failed') || message.includes('lightning invoice')) {
+      return new AppError(ErrorType.LIGHTNING_PAYMENT_FAILED, ERROR_MESSAGES[ErrorType.LIGHTNING_PAYMENT_FAILED], error)
+    }
+    
+    if (message.includes('bank payout failed') || message.includes('payout failed')) {
+      return new AppError(ErrorType.BANK_PAYOUT_FAILED, ERROR_MESSAGES[ErrorType.BANK_PAYOUT_FAILED], error)
+    }
+    
+    if (message.includes('invalid bank account') || message.includes('bank account invalid')) {
+      return new AppError(ErrorType.INVALID_BANK_ACCOUNT, ERROR_MESSAGES[ErrorType.INVALID_BANK_ACCOUNT], error)
+    }
+    
+    if (message.includes('mavapay') && (message.includes('unavailable') || message.includes('maintenance') || message.includes('503') || message.includes('502'))) {
+      return new AppError(ErrorType.MAVAPAY_API_UNAVAILABLE, ERROR_MESSAGES[ErrorType.MAVAPAY_API_UNAVAILABLE], error)
+    }
+    
+    if (message.includes('quote expired') || message.includes('expired quote')) {
+      return new AppError(ErrorType.QUOTE_EXPIRED, ERROR_MESSAGES[ErrorType.QUOTE_EXPIRED], error)
+    }
+    
+    if (message.includes('minimum amount') || message.includes('below minimum')) {
+      return new AppError(ErrorType.MINIMUM_AMOUNT_NOT_MET, ERROR_MESSAGES[ErrorType.MINIMUM_AMOUNT_NOT_MET], error)
+    }
+    
+    if (message.includes('maximum amount') || message.includes('exceeds maximum')) {
+      return new AppError(ErrorType.MAXIMUM_AMOUNT_EXCEEDED, ERROR_MESSAGES[ErrorType.MAXIMUM_AMOUNT_EXCEEDED], error)
+    }
+    
+    if (message.includes('webhook') && (message.includes('not received') || message.includes('timeout'))) {
+      return new AppError(ErrorType.WEBHOOK_NOT_RECEIVED, ERROR_MESSAGES[ErrorType.WEBHOOK_NOT_RECEIVED], error)
+    }
     
     // Wallet errors
     if (message.includes('wallet not connected') || message.includes('no account')) {
@@ -208,6 +304,10 @@ export function isRetryableError(error: unknown): boolean {
     ErrorType.TIMEOUT,
     ErrorType.RATE_LIMIT_EXCEEDED,
     ErrorType.TRANSACTION_FAILED,
+    // MavaPay retryable errors (Requirements 8.1, 8.4)
+    ErrorType.LIGHTNING_PAYMENT_FAILED,
+    ErrorType.MAVAPAY_API_UNAVAILABLE,
+    ErrorType.WEBHOOK_NOT_RECEIVED,
   ]
   
   return retryableTypes.includes(appError.type)
@@ -225,12 +325,65 @@ export function getRetryDelay(error: unknown, attemptNumber: number): number {
     [ErrorType.NETWORK_ERROR]: 2000,
     [ErrorType.TIMEOUT]: 3000,
     [ErrorType.TRANSACTION_FAILED]: 2000,
+    // MavaPay retry delays
+    [ErrorType.LIGHTNING_PAYMENT_FAILED]: 3000,
+    [ErrorType.MAVAPAY_API_UNAVAILABLE]: 10000,
+    [ErrorType.WEBHOOK_NOT_RECEIVED]: 5000,
   }
   
   const baseDelay = baseDelays[appError.type] || 2000
   
   // Exponential backoff
   return baseDelay * Math.pow(2, attemptNumber - 1)
+}
+
+/**
+ * Get support contact information for error
+ * Requirements: 8.2 - Add support contact information for failures
+ */
+export function getSupportContact(error: unknown): {
+  email?: string;
+  statusPage?: string;
+  message: string;
+} | null {
+  const appError = parseError(error)
+  
+  const supportInfo: Partial<Record<ErrorType, { email?: string; statusPage?: string; message: string }>> = {
+    [ErrorType.BANK_PAYOUT_FAILED]: {
+      email: 'support@mavapay.co',
+      message: 'For assistance with bank payouts, please contact MavaPay support',
+    },
+    [ErrorType.MAVAPAY_API_UNAVAILABLE]: {
+      statusPage: 'https://status.mavapay.co',
+      message: 'Check MavaPay service status for updates',
+    },
+    [ErrorType.LIGHTNING_PAYMENT_FAILED]: {
+      email: 'support@mavapay.co',
+      message: 'If the issue persists, contact MavaPay support for assistance',
+    },
+    [ErrorType.WEBHOOK_NOT_RECEIVED]: {
+      email: 'support@mavapay.co',
+      message: 'If your transaction status doesn\'t update after 30 minutes, contact support',
+    },
+  }
+  
+  return supportInfo[appError.type] || null
+}
+
+/**
+ * Check if error requires support contact
+ * Requirements: 8.2 - Display support contact for failures
+ */
+export function requiresSupportContact(error: unknown): boolean {
+  const appError = parseError(error)
+  
+  const supportRequiredTypes = [
+    ErrorType.BANK_PAYOUT_FAILED,
+    ErrorType.LIGHTNING_PAYMENT_FAILED,
+    ErrorType.WEBHOOK_NOT_RECEIVED,
+  ]
+  
+  return supportRequiredTypes.includes(appError.type)
 }
 
 /**

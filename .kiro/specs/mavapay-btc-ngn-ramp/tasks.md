@@ -309,7 +309,7 @@ This implementation plan breaks down the MavaPay integration into discrete, incr
   - Set up alerts for anomalies
   - _Requirements: All_
 
-- [ ] 26. Create documentation
+- [x] 26. Create documentation
   - Write user guide for on/off-ramBuild Bank Account Manager componentp features
   - Document API endpoints
   - Create troubleshooting guide

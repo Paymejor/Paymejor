@@ -267,3 +267,42 @@ export const MAVAPAY_CONFIG = {
   enabled: process.env.NEXT_PUBLIC_ENABLE_MAVAPAY_RAMP === 'true',
   minNGNAmount: parseInt(process.env.NEXT_PUBLIC_MAVAPAY_MIN_NGN_AMOUNT || '200000', 10),
 } as const;
+
+/**
+ * Determine if MavaPay should use sandbox environment
+ * Requirements: 3.1, 3.2
+ * 
+ * Uses sandbox when:
+ * - NODE_ENV is development
+ * - Default network is sepolia
+ * - Explicitly set via NEXT_PUBLIC_MAVAPAY_USE_SANDBOX
+ */
+export function useMavaPaySandbox(): boolean {
+  // Check explicit sandbox flag
+  const explicitSandbox = process.env.NEXT_PUBLIC_MAVAPAY_USE_SANDBOX;
+  if (explicitSandbox !== undefined) {
+    return explicitSandbox === 'true';
+  }
+  
+  // Use sandbox in development or on sepolia
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const defaultNetwork = getDefaultNetwork();
+  
+  return isDevelopment || defaultNetwork === 'sepolia';
+}
+
+/**
+ * Get MavaPay API URL based on environment
+ * Requirements: 3.1, 3.2
+ */
+export function getMavaPayApiUrl(): string {
+  return useMavaPaySandbox() ? MAVAPAY_CONFIG.sandboxUrl : MAVAPAY_CONFIG.apiUrl;
+}
+
+/**
+ * Check if MavaPay ramp feature is enabled
+ * Requirements: 3.1, 3.2
+ */
+export function isMavaPayEnabled(): boolean {
+  return MAVAPAY_CONFIG.enabled;
+}

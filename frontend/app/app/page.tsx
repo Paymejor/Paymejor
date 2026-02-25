@@ -9,7 +9,9 @@ import { DepositTab } from '@/components/tabs/deposit-tab'
 import { BorrowTab } from '@/components/tabs/borrow-tab'
 import { PositionsTab } from '@/components/tabs/positions-tab'
 import { ExitTab } from '@/components/tabs/exit-tab'
+import { RampTab } from '@/components/tabs/ramp-tab'
 import { useSearchParams } from 'next/navigation'
+import { isMavaPayEnabled } from '@/lib/constants'
 
 function TabManager({ onTabChange }: { onTabChange: (tab: string) => void }) {
   const searchParams = useSearchParams()
@@ -37,6 +39,9 @@ function HomeContent() {
         return <BorrowTab />
       case 'positions':
         return <PositionsTab />
+      case 'ramp':
+        // Only render Ramp tab if MavaPay is enabled
+        return isMavaPayEnabled() ? <RampTab /> : <DashboardTab />
       case 'exit':
         return <ExitTab />
       default:

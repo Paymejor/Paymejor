@@ -17,6 +17,7 @@ import {
   createAuditLog,
   logAudit,
 } from '@/lib/ramp-security';
+import { trackAPI, trackError } from '@/lib/monitoring';
 
 /**
  * Verify webhook signature
@@ -99,6 +100,13 @@ async function handlePaymentReceived(event: WebhookEvent, request: NextRequest):
   
   // Store webhook event for retrieval
   await storeWebhookEvent(event);
+
+  // Track successful webhook processing (server-side monitoring)
+  // Note: This would typically be sent to a monitoring service
+  console.log('[MONITORING] Webhook processed successfully', {
+    event: 'payment.received',
+    transactionId: event.data.transactionMetadata.orderId,
+  });
 }
 
 /**
@@ -330,6 +338,15 @@ export async function POST(request: NextRequest) {
     // Calculate response time
     const responseTime = Date.now() - startTime;
 
+    // Track API metrics (Task 25)
+    trackAPI({
+      endpoint: '/api/ramp/webhook',
+      method: 'POST',
+      statusCode: 200,
+      responseTime,
+      success: true,
+    });
+
     // Respond with 200 OK within 5 seconds (Requirements: 9.6)
     return NextResponse.json(
       { status: 'ok' },
@@ -352,6 +369,22 @@ export async function POST(request: NextRequest) {
 
     // Handle webhook errors
     if (error instanceof WebhookError) {
+      // Track webhook error (Task 25)
+      trackAPI({
+        endpoint: '/api/ramp/webhook',
+        method: 'POST',
+        statusCode: 500,
+        responseTime,
+        success: false,
+        errorType: 'webhook',
+        errorMessage: error.message,
+      });
+      trackError({
+        type: 'webhook',
+        message: error.message,
+        endpoint: '/api/ramp/webhook',
+      });
+      
       return NextResponse.json(
         {
           error: 'Webhook Processing Error',
@@ -367,6 +400,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle generic errors
+    // Track generic error (Task 25)
+    trackAPI({
+      endpoint: '/api/ramp/webhook',
+      method: 'POST',
+      statusCode: 500,
+      responseTime,
+      success: false,
+      errorType: 'unknown',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    });
+    trackError({
+      type: 'unknown',
+      message: error instanceof Error ? error.message : 'An unexpected error occurred',
+      endpoint: '/api/ramp/webhook',
+    });
+    
     return NextResponse.json(
       {
         error: 'Internal Server Error',

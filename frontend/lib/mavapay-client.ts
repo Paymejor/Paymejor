@@ -154,6 +154,7 @@ export class MavaPayClient {
     attempt: number = 1
   ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`;
+    const startTime = Date.now();
     
     try {
       const controller = new AbortController();
@@ -170,6 +171,7 @@ export class MavaPayClient {
       });
 
       clearTimeout(timeoutId);
+      const responseTime = Date.now() - startTime;
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -177,6 +179,21 @@ export class MavaPayClient {
         
         // Determine if error is retryable (5xx errors or network issues)
         const isRetryable = response.status >= 500 || response.status === 429;
+        
+        // Track API error metric (client-side only)
+        if (typeof window !== 'undefined') {
+          const { trackAPI } = require('./monitoring');
+          trackAPI({
+            endpoint,
+            method: options.method || 'GET',
+            statusCode: response.status,
+            responseTime,
+            success: false,
+            errorType: 'api',
+            errorMessage,
+            retryCount: attempt - 1,
+          });
+        }
         
         throw new MavaPayError(
           response.status,
@@ -186,8 +203,23 @@ export class MavaPayClient {
         );
       }
 
+      // Track successful API call (client-side only)
+      if (typeof window !== 'undefined') {
+        const { trackAPI } = require('./monitoring');
+        trackAPI({
+          endpoint,
+          method: options.method || 'GET',
+          statusCode: response.status,
+          responseTime,
+          success: true,
+          retryCount: attempt - 1,
+        });
+      }
+
       return await response.json();
     } catch (error: unknown) {
+      const responseTime = Date.now() - startTime;
+
       // Handle network errors and timeouts
       if (error instanceof TypeError || (error as Error).name === 'AbortError') {
         const networkError = new MavaPayError(
@@ -196,6 +228,27 @@ export class MavaPayClient {
           'Network error or timeout',
           true
         );
+        
+        // Track network error (client-side only)
+        if (typeof window !== 'undefined') {
+          const { trackAPI, trackError } = require('./monitoring');
+          trackAPI({
+            endpoint,
+            method: options.method || 'GET',
+            statusCode: 0,
+            responseTime,
+            success: false,
+            errorType: 'network',
+            errorMessage: networkError.message,
+            retryCount: attempt - 1,
+          });
+          trackError({
+            type: 'network',
+            message: networkError.message,
+            endpoint,
+            statusCode: 0,
+          });
+        }
         
         // Retry logic with exponential backoff
         if (attempt < this.config.retryAttempts) {
@@ -232,7 +285,14 @@ export class MavaPayClient {
  * Create MavaPay client instance from environment variables
  * Requirements: 3.1, 3.2
  */
-export function createMavaPayClient(useSandbox: boolean = false): MavaPayClient {
+export function createMavaPayClient(useSandbox?: boolean): MavaPayClient {
+  // Auto-detect sandbox if not explicitly specified
+  if (useSandbox === undefined) {
+    // Import dynamically to avoid circular dependency
+    const { useMavaPaySandbox } = require('./constants');
+    useSandbox = useMavaPaySandbox();
+  }
+  
   const config: MavaPayConfig = {
     apiKey: useSandbox
       ? process.env.MAVAPAY_SANDBOX_API_KEY || ''

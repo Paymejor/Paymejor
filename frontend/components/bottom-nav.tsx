@@ -1,7 +1,8 @@
 'use client'
 
-import { LayoutDashboard, PiggyBank, Zap, Lock, LogOut } from 'lucide-react'
+import { LayoutDashboard, PiggyBank, Zap, Lock, LogOut, ArrowLeftRight } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { isMavaPayEnabled } from '@/lib/constants'
 
 interface BottomNavProps {
   activeTab: string
@@ -15,13 +16,23 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     setMounted(true)
   }, [])
 
-  const navItems = [
+  // Base navigation items
+  const baseNavItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'deposit', label: 'Deposit', icon: PiggyBank },
     { id: 'borrow', label: 'Borrow', icon: Zap },
     { id: 'positions', label: 'Positions', icon: Lock },
     { id: 'exit', label: 'Exit', icon: LogOut },
   ]
+
+  // Add Ramp tab if MavaPay is enabled
+  const navItems = isMavaPayEnabled()
+    ? [
+        ...baseNavItems.slice(0, 4), // Dashboard, Deposit, Borrow, Positions
+        { id: 'ramp', label: 'Ramp', icon: ArrowLeftRight },
+        ...baseNavItems.slice(4), // Exit
+      ]
+    : baseNavItems
 
   if (!mounted) return null
 

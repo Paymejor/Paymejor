@@ -21,6 +21,7 @@ import {
   logValidationError,
   logApiError,
 } from '@/lib/ramp-security';
+import { trackAPI, trackError } from '@/lib/monitoring';
 
 /**
  * Validate on-ramp request parameters
@@ -209,6 +210,15 @@ export async function POST(request: NextRequest) {
       transactionRecord.id
     );
 
+    // Track API metrics (Task 25)
+    trackAPI({
+      endpoint: '/api/ramp/on-ramp',
+      method: 'POST',
+      statusCode: 200,
+      responseTime: duration,
+      success: true,
+    });
+
     return NextResponse.json({
       ...response,
       transaction: transactionRecord,
@@ -233,6 +243,22 @@ export async function POST(request: NextRequest) {
     if (error instanceof ValidationError) {
       logValidationError(request, error.field, error.message);
       
+      // Track validation error (Task 25)
+      trackAPI({
+        endpoint: '/api/ramp/on-ramp',
+        method: 'POST',
+        statusCode: 400,
+        responseTime: duration,
+        success: false,
+        errorType: 'validation',
+        errorMessage: error.message,
+      });
+      trackError({
+        type: 'validation',
+        message: error.message,
+        endpoint: '/api/ramp/on-ramp',
+      });
+      
       return NextResponse.json(
         {
           error: 'Validation Error',
@@ -253,6 +279,23 @@ export async function POST(request: NextRequest) {
     if (error && typeof error === 'object' && 'statusCode' in error) {
       const apiError = error as { statusCode: number; message: string; retryable?: boolean };
       
+      // Track API error (Task 25)
+      trackAPI({
+        endpoint: '/api/ramp/on-ramp',
+        method: 'POST',
+        statusCode: apiError.statusCode,
+        responseTime: duration,
+        success: false,
+        errorType: 'api',
+        errorMessage: apiError.message,
+      });
+      trackError({
+        type: 'api',
+        message: apiError.message,
+        endpoint: '/api/ramp/on-ramp',
+        statusCode: apiError.statusCode,
+      });
+      
       return NextResponse.json(
         {
           error: 'MavaPay API Error',
@@ -269,6 +312,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle generic errors
+    // Track generic error (Task 25)
+    trackAPI({
+      endpoint: '/api/ramp/on-ramp',
+      method: 'POST',
+      statusCode: 500,
+      responseTime: duration,
+      success: false,
+      errorType: 'unknown',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    });
+    trackError({
+      type: 'unknown',
+      message: error instanceof Error ? error.message : 'An unexpected error occurred',
+      endpoint: '/api/ramp/on-ramp',
+    });
+    
     return NextResponse.json(
       {
         error: 'Internal Server Error',

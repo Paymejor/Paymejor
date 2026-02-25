@@ -102,6 +102,76 @@ export function validateEnvironment(): ValidationResult {
     }
   }
 
+  // Validate MavaPay configuration (Requirements 3.1, 3.2)
+  const mavaPayEnabled = process.env.NEXT_PUBLIC_ENABLE_MAVAPAY_RAMP === 'true';
+  
+  if (mavaPayEnabled) {
+    // Check MavaPay API URLs
+    const mavaPayApiUrl = process.env.NEXT_PUBLIC_MAVAPAY_API_URL;
+    const mavaPaySandboxUrl = process.env.NEXT_PUBLIC_MAVAPAY_SANDBOX_URL;
+    
+    if (!mavaPayApiUrl) {
+      warnings.push('NEXT_PUBLIC_MAVAPAY_API_URL not configured. Using default: https://api.mavapay.co');
+    }
+    
+    if (!mavaPaySandboxUrl) {
+      warnings.push('NEXT_PUBLIC_MAVAPAY_SANDBOX_URL not configured. Using default: https://staging.api.mavapay.co');
+    }
+    
+    // Validate URL formats
+    if (mavaPayApiUrl) {
+      try {
+        new URL(mavaPayApiUrl);
+      } catch {
+        errors.push(`Invalid MavaPay API URL format: ${mavaPayApiUrl}`);
+      }
+    }
+    
+    if (mavaPaySandboxUrl) {
+      try {
+        new URL(mavaPaySandboxUrl);
+      } catch {
+        errors.push(`Invalid MavaPay Sandbox URL format: ${mavaPaySandboxUrl}`);
+      }
+    }
+    
+    // Check server-side API keys (only in Node.js environment)
+    if (typeof window === 'undefined') {
+      const mavaPayApiKey = process.env.MAVAPAY_API_KEY;
+      const mavaPaySandboxApiKey = process.env.MAVAPAY_SANDBOX_API_KEY;
+      const mavaPayWebhookSecret = process.env.MAVAPAY_WEBHOOK_SECRET;
+      const mavaPaySandboxWebhookSecret = process.env.MAVAPAY_SANDBOX_WEBHOOK_SECRET;
+      
+      if (!mavaPayApiKey) {
+        warnings.push('MAVAPAY_API_KEY not configured. Production on/off-ramp will not work.');
+      }
+      
+      if (!mavaPaySandboxApiKey) {
+        warnings.push('MAVAPAY_SANDBOX_API_KEY not configured. Sandbox testing will not work.');
+      }
+      
+      if (!mavaPayWebhookSecret) {
+        warnings.push('MAVAPAY_WEBHOOK_SECRET not configured. Production webhook verification will fail.');
+      }
+      
+      if (!mavaPaySandboxWebhookSecret) {
+        warnings.push('MAVAPAY_SANDBOX_WEBHOOK_SECRET not configured. Sandbox webhook verification will fail.');
+      }
+    }
+    
+    // Validate minimum NGN amount
+    const minNGNAmount = process.env.NEXT_PUBLIC_MAVAPAY_MIN_NGN_AMOUNT;
+    if (minNGNAmount) {
+      const amount = parseInt(minNGNAmount, 10);
+      if (isNaN(amount) || amount < 0) {
+        errors.push(`Invalid NEXT_PUBLIC_MAVAPAY_MIN_NGN_AMOUNT: ${minNGNAmount}. Must be a positive number.`);
+      }
+      if (amount < 200000) {
+        warnings.push(`NEXT_PUBLIC_MAVAPAY_MIN_NGN_AMOUNT is ${amount} kobo (${amount / 100} NGN). MavaPay minimum is 2000 NGN (200000 kobo).`);
+      }
+    }
+  }
+
   return {
     isValid: errors.length === 0,
     errors,

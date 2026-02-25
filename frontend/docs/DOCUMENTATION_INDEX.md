@@ -21,12 +21,20 @@ This document provides an overview of all documentation available for the PayMej
    - Contract addresses guide
    - Troubleshooting environment issues
 
-3. **[.env.example](./.env.example)** - Environment variables template
+3. **[ENVIRONMENT_CONFIGURATION.md](./ENVIRONMENT_CONFIGURATION.md)** - MavaPay environment configuration
+   - MavaPay environment variables
+   - Sandbox vs production configuration
+   - Feature flag usage
+   - Automatic environment detection
+   - Security considerations
+   - Deployment configurations
+
+4. **[.env.example](./.env.example)** - Environment variables template
    - All required and optional variables
    - Inline documentation
    - Example values
 
-4. **[CONTRACT_ADDRESSES.md](./CONTRACT_ADDRESSES.md)** - Contract addresses reference
+5. **[CONTRACT_ADDRESSES.md](./CONTRACT_ADDRESSES.md)** - Contract addresses reference
    - How to find contract addresses
    - Sepolia testnet addresses
    - Mainnet addresses
@@ -35,7 +43,7 @@ This document provides an overview of all documentation available for the PayMej
 
 ### Deployment
 
-5. **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide
+6. **[DEPLOYMENT.md](./DEPLOYMENT.md)** - Complete deployment guide
    - Prerequisites and preparation
    - Vercel configuration
    - Environment variables setup
@@ -131,15 +139,67 @@ This document provides an overview of all documentation available for the PayMej
     - Deployment checklist
     - **Note**: Replaced by SWAP_INTEGRATION.md
 
+### MavaPay Integration (BTC ↔ NGN On/Off-Ramp)
+
+19. **[MAVAPAY_SETUP.md](./MAVAPAY_SETUP.md)** - MavaPay integration guide
+    - MavaPay API setup
+    - Environment configuration
+    - Feature implementation
+    - Testing guide
+
+20. **[ENVIRONMENT_CONFIGURATION.md](./ENVIRONMENT_CONFIGURATION.md)** - Environment configuration
+    - MavaPay environment variables
+    - Sandbox vs production
+    - Feature flags
+    - Security considerations
+
+21. **[RAMP_ERROR_HANDLING.md](./RAMP_ERROR_HANDLING.md)** - Error handling
+    - Error types and handling
+    - User feedback
+    - Retry logic
+    - Maintenance messages
+
+22. **[RAMP_SECURITY.md](./RAMP_SECURITY.md)** - Security implementation
+    - Input validation
+    - Rate limiting
+    - Audit logging
+    - Sensitive data protection
+
+23. **[QUOTE_EXPIRATION_IMPLEMENTATION.md](./QUOTE_EXPIRATION_IMPLEMENTATION.md)** - Quote expiration
+    - Auto-refresh logic
+    - Rate change detection
+    - User re-confirmation
+
+24. **[ATOMIQ_INTEGRATION_SUMMARY.md](./ATOMIQ_INTEGRATION_SUMMARY.md)** - Atomiq bridge integration
+    - BTC bridging to Starknet
+    - Integration with on-ramp flow
+    - Testing guide
+
+25. **[TASK_18_IMPLEMENTATION_SUMMARY.md](./TASK_18_IMPLEMENTATION_SUMMARY.md)** - Error handling summary
+    - Implementation overview
+    - Components created
+    - Testing results
+
+26. **[TASK_22_SECURITY_IMPLEMENTATION.md](./TASK_22_SECURITY_IMPLEMENTATION.md)** - Security implementation summary
+    - Security features
+    - Implementation details
+    - Testing results
+
+27. **[TASK_23_IMPLEMENTATION_SUMMARY.md](./TASK_23_IMPLEMENTATION_SUMMARY.md)** - Environment configuration summary
+    - Environment setup
+    - Feature flags
+    - Helper functions
+    - Verification results
+
 ### Scripts
 
-15. **[scripts/pre-deployment-check.sh](./scripts/pre-deployment-check.sh)** - Pre-deployment verification
+28. **[scripts/pre-deployment-check.sh](./scripts/pre-deployment-check.sh)** - Pre-deployment verification
     - Automated checks before deployment
     - Dependency verification
     - Build validation
     - Environment validation
 
-16. **[scripts/deployment-checklist.sh](./scripts/deployment-checklist.sh)** - Post-deployment verification
+29. **[scripts/deployment-checklist.sh](./scripts/deployment-checklist.sh)** - Post-deployment verification
     - Automated deployment verification
     - Site accessibility checks
     - Performance checks
@@ -213,6 +273,14 @@ This document provides an overview of all documentation available for the PayMej
 1. Read [SWAP_INTEGRATION.md](./SWAP_INTEGRATION.md) for current implementation
 2. AVNU provides better quotes and gasless transactions
 3. No need for fallback providers
+
+### I want to configure MavaPay on/off-ramp
+
+1. Read [ENVIRONMENT_CONFIGURATION.md](./ENVIRONMENT_CONFIGURATION.md) for environment setup
+2. Follow [MAVAPAY_SETUP.md](./MAVAPAY_SETUP.md) for integration guide
+3. Review [RAMP_SECURITY.md](./RAMP_SECURITY.md) for security implementation
+4. Check [RAMP_ERROR_HANDLING.md](./RAMP_ERROR_HANDLING.md) for error handling
+5. Test with sandbox environment first
 
 ---
 

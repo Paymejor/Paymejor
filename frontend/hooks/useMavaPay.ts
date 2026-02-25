@@ -5,6 +5,7 @@ import { useWallet } from '@/lib/wallet-context'
 import { useNetwork } from './useNetwork'
 import { useCache } from './useCache'
 import { SecurityValidation } from '@/lib/security-validation'
+import { trackTransaction, trackError } from '@/lib/monitoring'
 import {
   QuoteRequest,
   QuoteResponse,
@@ -228,6 +229,8 @@ export function useMavaPay(): UseMavaPayReturn {
       throw new Error('Wallet not connected')
     }
 
+    const startTime = Date.now();
+
     try {
       setOffRampLoading(true)
       setOffRampError(null)
@@ -279,6 +282,16 @@ export function useMavaPay(): UseMavaPayReturn {
       }
       
       saveTransaction(transaction)
+
+      // Track successful transaction initiation (Task 25)
+      trackTransaction({
+        transactionId: payoutData.transactionId,
+        type: 'off-ramp',
+        status: 'success',
+        duration: Date.now() - startTime,
+        amount: payoutData.amount.toString(),
+        currency: 'BTC',
+      });
       
       return payoutData
     } catch (err) {
@@ -287,6 +300,22 @@ export function useMavaPay(): UseMavaPayReturn {
       setOffRampError(error)
       setError(errorMessage)
       console.error('Error initiating off-ramp:', err)
+
+      // Track failed transaction (Task 25)
+      trackTransaction({
+        transactionId: 'unknown',
+        type: 'off-ramp',
+        status: 'failed',
+        duration: Date.now() - startTime,
+        errorType: err instanceof ValidationError ? 'validation' : 'api',
+        errorMessage,
+      });
+      trackError({
+        type: err instanceof ValidationError ? 'validation' : 'api',
+        message: errorMessage,
+        endpoint: '/api/ramp/payout',
+      });
+
       throw error
     } finally {
       setOffRampLoading(false)
@@ -303,6 +332,8 @@ export function useMavaPay(): UseMavaPayReturn {
     if (!isConnected || !address) {
       throw new Error('Wallet not connected')
     }
+
+    const startTime = Date.now();
 
     try {
       setOnRampLoading(true)
@@ -357,6 +388,16 @@ export function useMavaPay(): UseMavaPayReturn {
       }
       
       saveTransaction(transaction)
+
+      // Track successful transaction initiation (Task 25)
+      trackTransaction({
+        transactionId: onRampData.transactionId,
+        type: 'on-ramp',
+        status: 'success',
+        duration: Date.now() - startTime,
+        amount: params.amount,
+        currency: 'NGN',
+      });
       
       return onRampData
     } catch (err) {
@@ -365,6 +406,22 @@ export function useMavaPay(): UseMavaPayReturn {
       setOnRampError(error)
       setError(errorMessage)
       console.error('Error initiating on-ramp:', err)
+
+      // Track failed transaction (Task 25)
+      trackTransaction({
+        transactionId: 'unknown',
+        type: 'on-ramp',
+        status: 'failed',
+        duration: Date.now() - startTime,
+        errorType: err instanceof ValidationError ? 'validation' : 'api',
+        errorMessage,
+      });
+      trackError({
+        type: err instanceof ValidationError ? 'validation' : 'api',
+        message: errorMessage,
+        endpoint: '/api/ramp/on-ramp',
+      });
+
       throw error
     } finally {
       setOnRampLoading(false)

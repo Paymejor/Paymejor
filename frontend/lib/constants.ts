@@ -29,6 +29,8 @@ export interface NetworkConfig {
     tongoProtocol: string;
     wBTC: string;
     USDC: string;
+    organizationFactory: string;
+    semaphore: string;
   };
 }
 
@@ -42,6 +44,8 @@ export const NETWORK_CONFIGS: Record<SupportedNetwork, NetworkConfig> = {
       tongoProtocol: process.env.NEXT_PUBLIC_SEPOLIA_TONGO_PROTOCOL_ADDRESS || '',
       wBTC: process.env.NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS || '',
       USDC: process.env.NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS || '',
+      organizationFactory: process.env.NEXT_PUBLIC_SEPOLIA_ORGANIZATION_FACTORY_ADDRESS || '0x0434978253e01b5a70802926760a3b1d0744b8deb14a536ae7db7cf40d100fc2',
+      semaphore: process.env.NEXT_PUBLIC_SEPOLIA_SEMAPHORE_ADDRESS || '',
     },
   },
   mainnet: {
@@ -53,6 +57,8 @@ export const NETWORK_CONFIGS: Record<SupportedNetwork, NetworkConfig> = {
       tongoProtocol: process.env.NEXT_PUBLIC_MAINNET_TONGO_PROTOCOL_ADDRESS || '',
       wBTC: process.env.NEXT_PUBLIC_MAINNET_WBTC_ADDRESS || '',
       USDC: process.env.NEXT_PUBLIC_MAINNET_USDC_ADDRESS || '',
+      organizationFactory: process.env.NEXT_PUBLIC_MAINNET_ORGANIZATION_FACTORY_ADDRESS || '0x0125af63a365a165ec4747fbbbf9d54da56261b41573660567b8b75bbb16b2a0',
+      semaphore: process.env.NEXT_PUBLIC_MAINNET_SEMAPHORE_ADDRESS || '',
     },
   },
 };
@@ -239,11 +245,15 @@ export const OPTIONAL_ENV_VARS = [
   'NEXT_PUBLIC_SEPOLIA_TONGO_PROTOCOL_ADDRESS',
   'NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS',
   'NEXT_PUBLIC_SEPOLIA_USDC_ADDRESS',
+  'NEXT_PUBLIC_SEPOLIA_ORGANIZATION_FACTORY_ADDRESS',
+  'NEXT_PUBLIC_SEPOLIA_SEMAPHORE_ADDRESS',
   // Mainnet
   'NEXT_PUBLIC_MAINNET_VESU_POOL_ADDRESS',
   'NEXT_PUBLIC_MAINNET_TONGO_PROTOCOL_ADDRESS',
   'NEXT_PUBLIC_MAINNET_WBTC_ADDRESS',
   'NEXT_PUBLIC_MAINNET_USDC_ADDRESS',
+  'NEXT_PUBLIC_MAINNET_ORGANIZATION_FACTORY_ADDRESS',
+  'NEXT_PUBLIC_MAINNET_SEMAPHORE_ADDRESS',
   // Default network
   'NEXT_PUBLIC_DEFAULT_NETWORK',
   // MavaPay

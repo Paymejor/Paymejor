@@ -1,0 +1,22 @@
+{
+  "network": "mainnet",
+  "timestamp": "2025-02-28T14:30:00Z",
+  "contracts": {
+    "Organization": {
+      "class_hash": "0x0396ec254d7cac58ec36dbd1ae194bb0376f23f20ee451eae4ad94532e028da7",
+      "declaration_tx": "0x04cba0f32488b9acc1bbe6c23fca389267936185d3fb99c1057988b71a598874",
+      "voyager_class": "https://voyager.online/class/0x0396ec254d7cac58ec36dbd1ae194bb0376f23f20ee451eae4ad94532e028da7"
+    },
+    "OrganizationFactory": {
+      "class_hash": "0x0099e389a349fb594e4214f9c5727d4960a8ebb5b774e8ffa45c59205ec1d4ff",
+      "declaration_tx": "0x02ae1e0753fde00b916c0234c13dbe752e4bc511f140e57313f224fd01e23a3b",
+      "address": "0x0125af63a365a165ec4747fbbbf9d54da56261b41573660567b8b75bbb16b2a0",
+      "deployment_tx": "0x05e4a30324f3503989de1d83f0273cef05e7e9dd20c2d944330766246dce98ae",
+      "voyager_contract": "https://voyager.online/contract/0x0125af63a365a165ec4747fbbbf9d54da56261b41573660567b8b75bbb16b2a0",
+      "voyager_tx": "https://voyager.online/tx/0x05e4a30324f3503989de1d83f0273cef05e7e9dd20c2d944330766246dce98ae"
+    }
+  },
+  "rpc_url": "https://starknet-mainnet.g.alchemy.com/starknet/version/rpc/v0_10/b0ifhVAUx_eGAhR2jonGL",
+  "account": "corelimitlxx",
+  "account_address": "0x01ca91eac1c9300195ecade409648f4b03d64907e7cd3517fb82d9d336fd46f8"
+}

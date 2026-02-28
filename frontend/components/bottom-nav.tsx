@@ -1,6 +1,6 @@
 'use client'
 
-import { LayoutDashboard, PiggyBank, Zap, Lock, LogOut, ArrowLeftRight } from 'lucide-react'
+import { LayoutDashboard, PiggyBank, Zap, Lock, LogOut, ArrowLeftRight, Users } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isMavaPayEnabled } from '@/lib/constants'
 
@@ -22,6 +22,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     { id: 'deposit', label: 'Deposit', icon: PiggyBank },
     { id: 'borrow', label: 'Borrow', icon: Zap },
     { id: 'positions', label: 'Positions', icon: Lock },
+    { id: 'organizations', label: 'Organizations', icon: Users },
     { id: 'exit', label: 'Exit', icon: LogOut },
   ]
 
@@ -30,7 +31,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
     ? [
         ...baseNavItems.slice(0, 4), // Dashboard, Deposit, Borrow, Positions
         { id: 'ramp', label: 'Ramp', icon: ArrowLeftRight },
-        ...baseNavItems.slice(4), // Exit
+        ...baseNavItems.slice(4), // Organizations, Exit
       ]
     : baseNavItems
 

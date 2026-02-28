@@ -10,6 +10,7 @@ import { BorrowTab } from '@/components/tabs/borrow-tab'
 import { PositionsTab } from '@/components/tabs/positions-tab'
 import { ExitTab } from '@/components/tabs/exit-tab'
 import { RampTab } from '@/components/tabs/ramp-tab'
+import { OrganizationsTab } from '@/components/tabs/organizations-tab'
 import { useSearchParams } from 'next/navigation'
 import { isMavaPayEnabled } from '@/lib/constants'
 
@@ -42,6 +43,8 @@ function HomeContent() {
       case 'ramp':
         // Only render Ramp tab if MavaPay is enabled
         return isMavaPayEnabled() ? <RampTab /> : <DashboardTab />
+      case 'organizations':
+        return <OrganizationsTab />
       case 'exit':
         return <ExitTab />
       default:

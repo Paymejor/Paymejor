@@ -1,0 +1,6 @@
+.env*
+.vscode
+sign.json
+/contract/accounts.json
+commands.md
+**/signer.json

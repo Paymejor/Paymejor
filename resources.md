@@ -2,6 +2,7 @@
 🔐 Privacy Tools
 
 *Starknet Privacy Toolkit: https://github.com/omarespejel/starknet-privacy-toolkit
+https://github.com/starknet-io/starknet-addresses/blob/master/bridged_tokens/sepolia.json
 *Tongo SDK Quick Start: https://docs.tongo.cash/sdk/quick-start.html
 *Tongo Protocol Intro: https://docs.tongo.cash/protocol/introduction.html
 *Sumo Login (ZK social login): https://github.com/fatlabsxyz/sumo-login-cairo
@@ -89,3 +90,10 @@ https://health.avnu.fi/
 
 🧩 AI / LLM Support (MCP-ready):
 https://docs.avnu.fi/resources/ai-integration
+
+
+https://github.com/semaphore-protocol/boilerplate
+https://docs.semaphore.pse.dev/guides/identities
+https://docs.semaphore.pse.dev/guides/groups
+https://docs.semaphore.pse.dev/guides/proofs
+https://docs.semaphore.pse.dev/deployed-contracts

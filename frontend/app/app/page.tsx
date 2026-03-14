@@ -32,9 +32,10 @@ function TabManager({ onTabChange }: { onTabChange: (tab: string) => void }) {
 
 function HomeContent() {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const { isConnected, isReconnecting } = useWallet()
+  const { isConnected, isReconnecting, connect } = useWallet()
   const [showConnectModal, setShowConnectModal] = useState(false)
   const hasShownModal = useRef(false)
+  const [isFallbackConnecting, setIsFallbackConnecting] = useState(false)
 
   useEffect(() => {
     if (hasShownModal.current) return
@@ -47,11 +48,33 @@ function HomeContent() {
 
   useEffect(() => {
     if (!showConnectModal) return
-    if (!isReconnecting || isConnected) {
+
+    if (isConnected) {
       setShowConnectModal(false)
       sessionStorage.removeItem('pmj_show_connect_modal')
+      return
+    }
+
+    if (!isReconnecting) {
+      setShowConnectModal(false)
     }
   }, [showConnectModal, isReconnecting, isConnected])
+
+  useEffect(() => {
+    const shouldHandle = sessionStorage.getItem('pmj_show_connect_modal') === '1'
+    if (!shouldHandle) return
+    if (isConnected || isReconnecting || isFallbackConnecting) return
+
+    setIsFallbackConnecting(true)
+    connect()
+      .catch(() => {
+        // Navbar handles user-facing errors
+      })
+      .finally(() => {
+        setIsFallbackConnecting(false)
+        sessionStorage.removeItem('pmj_show_connect_modal')
+      })
+  }, [isConnected, isReconnecting, isFallbackConnecting, connect])
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -77,7 +100,7 @@ function HomeContent() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
-      <Dialog open={showConnectModal}>
+      <Dialog open={showConnectModal || isFallbackConnecting}>
         <DialogContent className="max-w-sm">
           <div className="flex flex-col items-center gap-3 py-4">
             <Spinner className="h-6 w-6 text-primary" />

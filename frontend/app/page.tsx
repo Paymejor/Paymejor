@@ -22,7 +22,18 @@ export default function LandingPage() {
   const handleLaunchApp = async () => {
     setIsConnecting(true)
     try {
-      // Open wallet selector on landing page
+      // First, try silent connect if already connected
+      const silent = await connectStarknet({
+        modalMode: 'neverAsk',
+      })
+
+      if (silent && (silent as any).account) {
+        sessionStorage.setItem('pmj_show_connect_modal', '1')
+        router.push('/app')
+        return
+      }
+
+      // Otherwise, open wallet selector on landing page
       const starknet = await connectStarknet({
         modalMode: 'alwaysAsk',
         modalTheme: 'dark',
@@ -31,7 +42,22 @@ export default function LandingPage() {
       if (!starknet) {
         throw new Error('No wallet selected')
       }
-      if (!(starknet as any).account) {
+
+      let account = (starknet as any).account
+      if (!account) {
+        try {
+          if (typeof (starknet as any).enable === 'function') {
+            await (starknet as any).enable()
+          } else if (typeof (starknet as any).request === 'function') {
+            await (starknet as any).request({ type: 'wallet_requestAccounts' })
+          }
+        } catch (enableError) {
+          console.warn('Wallet enable/request failed:', enableError)
+        }
+        account = (starknet as any).account
+      }
+
+      if (!account) {
         throw new Error('No account found. Please unlock your wallet')
       }
 

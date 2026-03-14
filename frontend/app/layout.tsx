@@ -1,12 +1,9 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
 
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { EnvValidator } from '@/components/env-validator'
-
-const _geist = Geist({ subsets: ['latin'] })
-const _geistMono = Geist_Mono({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'PayMeJor - BTC Lending Platform',
@@ -26,6 +23,7 @@ export default function RootLayout({
           <EnvValidator />
           {children}
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )

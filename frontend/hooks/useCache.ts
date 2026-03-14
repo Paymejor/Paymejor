@@ -15,6 +15,7 @@ interface CacheOptions<T> {
   key: string
   ttl?: number // Time to live in milliseconds (default: 30 seconds)
   refreshInterval?: number // Auto-refresh interval in milliseconds (0 = disabled)
+  deferRefreshMs?: number // Delay before starting auto-refresh (default: 0)
   fetchFn: () => Promise<T>
   onError?: (error: Error) => void
   invalidateOn?: string[] // Event names that should invalidate this cache

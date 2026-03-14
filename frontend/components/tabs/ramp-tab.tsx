@@ -19,7 +19,7 @@ import {
   Info
 } from 'lucide-react'
 import { useWallet } from '@/lib/wallet-context'
-import { useBalances } from '@/lib/balance-context'
+import { useStarknet } from '@/hooks/useStarknet'
 import { useMavaPay } from '@/hooks/useMavaPay'
 import { useBankAccounts } from '@/hooks/useBankAccounts'
 import { useNetwork } from '@/hooks/useNetwork'
@@ -61,7 +61,7 @@ type RampMode = 'off-ramp' | 'on-ramp'
 export function RampTab() {
   const { address, isConnected } = useWallet()
   const { network } = useNetwork()
-  const { USDC: usdcBalance, isLoading: balanceLoading, refreshBalances } = useBalances()
+  const { getBalance } = useStarknet()
   const config = getNetworkConfig(network)
   
   const {
@@ -104,6 +104,10 @@ export function RampTab() {
   const [showBankManager, setShowBankManager] = useState(false)
   const [lightningAddress, setLightningAddress] = useState('')
   
+  // Balance state
+  const [usdcBalance, setUsdcBalance] = useState('0')
+  const [balanceLoading, setBalanceLoading] = useState(false)
+  
   // Quote state
   const [quoteExpiry, setQuoteExpiry] = useState<Date | null>(null)
   const [quoteTimer, setQuoteTimer] = useState<number>(0)
@@ -142,6 +146,26 @@ export function RampTab() {
   const [bridgeTxId, setBridgeTxId] = useState<string | null>(null)
 
   /**
+   * Fetch token balances
+   * Requirements: 1.1
+   */
+  const fetchBalances = useCallback(async () => {
+    if (!isConnected || !address) return
+    
+    try {
+      setBalanceLoading(true)
+      
+      const usdc = await getBalance(config.contracts.USDC, address)
+      
+      setUsdcBalance(usdc)
+    } catch (err) {
+      console.error('Error fetching balances:', err)
+    } finally {
+      setBalanceLoading(false)
+    }
+  }, [isConnected, address, config.contracts, getBalance])
+
+  /**
    * Fetch transaction history
    * Requirements: 5.1, 5.3
    */
@@ -166,11 +190,12 @@ export function RampTab() {
   }, [address])
 
   /**
-   * Load transactions on mount and when wallet connects
+   * Load balances and transactions on mount and when wallet connects
    */
   useEffect(() => {
+    fetchBalances()
     fetchTransactions()
-  }, [fetchTransactions])
+  }, [fetchBalances, fetchTransactions])
 
   /**
    * Get current balance for selected currency
@@ -391,7 +416,7 @@ export function RampTab() {
           setTxMessage('Bridge completed! Your wBTC is now available on Starknet.')
           
           // Refresh balances to show updated wBTC
-          refreshBalances()
+          fetchBalances()
         } else if (status.status === 'failed') {
           setBridgeInProgress(false)
           setTxStatus('error')
@@ -572,7 +597,7 @@ export function RampTab() {
       setBtcAmount(null)
       
       // Refresh balances
-      refreshBalances()
+      fetchBalances()
       fetchTransactions()
       
     } catch (err) {

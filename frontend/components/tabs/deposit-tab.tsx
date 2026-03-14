@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { CheckCircle2, AlertCircle, Lock, ExternalLink } from 'lucide-react'
 import { useWallet } from '@/lib/wallet-context'
-import { useBalances } from '@/lib/balance-context'
 import { useStarknet } from '@/hooks/useStarknet'
 import { useTongo } from '@/hooks/useTongo'
 import { useNetwork } from '@/hooks/useNetwork'
@@ -20,15 +19,52 @@ import { formatUnits, parseUnits } from '@/lib/utils'
 export function DepositTab() {
   const { address, isConnected } = useWallet()
   const { network } = useNetwork()
-  const { wBTC: wbtcBalance, refreshBalance } = useBalances()
-  const { sendTransaction, waitForTransaction } = useStarknet()
-  const { tongoAccount, fund } = useTongo()
+  const { getBalance, sendTransaction, waitForTransaction } = useStarknet()
+  const { tongoAccount, fund, createAccount } = useTongo()
   
   const [amount, setAmount] = useState('')
+  const [wbtcBalance, setWbtcBalance] = useState('0')
   const [isLoading, setIsLoading] = useState(false)
   const [txStatus, setTxStatus] = useState<'idle' | 'approving' | 'funding' | 'success' | 'error'>('idle')
   const [txHash, setTxHash] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
+
+  /**
+   * Fetch real wBTC balance from wallet
+   * Requirements: AC-3.2
+   */
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (!isConnected || !address) return
+      
+      try {
+        const config = getNetworkConfig(network)
+        const balance = await getBalance(config.contracts.wBTC, address)
+        setWbtcBalance(balance)
+      } catch (err) {
+        console.error('Error fetching wBTC balance:', err)
+      }
+    }
+    
+    fetchBalance()
+    
+    // Refresh balance when network changes
+    const handleNetworkChange = () => {
+      fetchBalance()
+    }
+    
+    window.addEventListener('paymejor_network_changed', handleNetworkChange)
+    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
+  }, [isConnected, address, network, getBalance])
+
+  /**
+   * Ensure Tongo account is created
+   */
+  useEffect(() => {
+    if (isConnected && !tongoAccount) {
+      createAccount().catch(console.error)
+    }
+  }, [isConnected, tongoAccount, createAccount])
 
   const handleMaxClick = () => {
     if (wbtcBalance && wbtcBalance !== '0') {
@@ -106,8 +142,9 @@ export function DepositTab() {
       setTxStatus('success')
       setAmount('')
       
-      // Refresh balance from centralized provider
-      await refreshBalance('wBTC')
+      // Refresh balance
+      const newBalance = await getBalance(config.contracts.wBTC, address)
+      setWbtcBalance(newBalance)
 
       // Reset after 5 seconds
       setTimeout(() => {

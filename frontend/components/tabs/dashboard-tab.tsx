@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,8 +8,8 @@ import { AlertCircle, Lock, TrendingUp } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useWallet } from '@/lib/wallet-context'
-import { useBalances } from '@/lib/balance-context'
-import { TOKEN_METADATA } from '@/lib/constants'
+import { useStarknet } from '@/hooks/useStarknet'
+import { CONTRACT_ADDRESSES, TOKEN_METADATA } from '@/lib/constants'
 import { BridgeWidget } from '@/components/bridge-widget'
 import { useToast } from '@/hooks/use-toast'
 
@@ -27,11 +27,60 @@ import { useToast } from '@/hooks/use-toast'
 
 export function DashboardTab() {
   const { isConnected, address } = useWallet()
-  const { wBTC: wBTCBalance, USDC: usdcBalance, isLoading: isLoadingBalances, error: balanceError, refreshBalances } = useBalances()
+  const { getBalance } = useStarknet()
   const { toast } = useToast()
+  
+  // Balance state
+  const [wBTCBalance, setWBTCBalance] = useState<string>('0')
+  const [usdcBalance, setUSDCBalance] = useState<string>('0')
+  
+  // Loading and error states
+  const [isLoadingBalances, setIsLoadingBalances] = useState(false)
+  const [balanceError, setBalanceError] = useState<string | null>(null)
   
   // Bridge widget visibility
   const [showBridgeWidget, setShowBridgeWidget] = useState(false)
+  
+  // Fetch balances when wallet is connected
+  useEffect(() => {
+    if (!isConnected || !address) {
+      // Reset balances when disconnected
+      setWBTCBalance('0')
+      setUSDCBalance('0')
+      setBalanceError(null)
+      return
+    }
+    
+    const fetchBalances = async () => {
+      setIsLoadingBalances(true)
+      setBalanceError(null)
+      
+      try {
+        // Fetch wBTC balance
+        const wbtcBal = await getBalance(CONTRACT_ADDRESSES.wBTC, address)
+        setWBTCBalance(wbtcBal)
+        
+        // Fetch USDC balance
+        const usdcBal = await getBalance(CONTRACT_ADDRESSES.USDC, address)
+        setUSDCBalance(usdcBal)
+      } catch (error) {
+        console.error('Error fetching balances:', error)
+        setBalanceError(error instanceof Error ? error.message : 'Failed to fetch balances')
+      } finally {
+        setIsLoadingBalances(false)
+      }
+    }
+    
+    fetchBalances()
+    
+    // Refresh balances when network changes
+    const handleNetworkChange = () => {
+      fetchBalances()
+    }
+    
+    window.addEventListener('paymejor_network_changed', handleNetworkChange)
+    return () => window.removeEventListener('paymejor_network_changed', handleNetworkChange)
+  }, [isConnected, address, getBalance])
   
   /**
    * Handle bridge completion
@@ -44,7 +93,14 @@ export function DashboardTab() {
     })
     
     // Refresh balances after bridge completes
-    await refreshBalances()
+    if (isConnected && address) {
+      try {
+        const wbtcBal = await getBalance(CONTRACT_ADDRESSES.wBTC, address)
+        setWBTCBalance(wbtcBal)
+      } catch (error) {
+        console.error('Error refreshing balance:', error)
+      }
+    }
     
     // Hide bridge widget after completion
     setShowBridgeWidget(false)

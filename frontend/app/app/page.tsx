@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense, useRef } from 'react'
 import { Navbar } from '@/components/navbar'
 import { WalletProvider } from '@/lib/wallet-context'
-import { BalanceProvider } from '@/lib/balance-context'
 import { BottomNav } from '@/components/bottom-nav'
 import { DashboardTab } from '@/components/tabs/dashboard-tab'
 import { DepositTab } from '@/components/tabs/deposit-tab'
@@ -165,9 +164,7 @@ function HomeContent() {
 export default function Page() {
   return (
     <WalletProvider>
-      <BalanceProvider>
-        <HomeContent />
-      </BalanceProvider>
+      <HomeContent />
     </WalletProvider>
   )
 }

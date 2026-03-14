@@ -11,6 +11,8 @@ import { SupportedNetwork } from './constants'
 interface ExtendedStarknetWindowObject extends StarknetWindowObject {
   account?: AccountInterface
   selectedAddress?: string
+  enable?: () => Promise<void>
+  request?: (args: { type: string }) => Promise<unknown>
 }
 
 interface WalletContextType extends WalletState {
@@ -76,7 +78,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   ): Promise<void> => {
     try {
       // Get account - in v4, if account exists, wallet is connected
-      const walletAccount = starknet.account
+      let walletAccount = starknet.account
+      if (!walletAccount) {
+        try {
+          if (typeof starknet.enable === 'function') {
+            await starknet.enable()
+          } else if (typeof (starknet as any).request === 'function') {
+            await (starknet as any).request({ type: 'wallet_requestAccounts' })
+          }
+        } catch (enableError) {
+          console.warn('Wallet enable/request failed:', enableError)
+        }
+        walletAccount = starknet.account
+      }
+
       if (!walletAccount) {
         throw new Error('No account found in wallet')
       }
@@ -176,6 +191,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const reconnectWallet = async () => {
       try {
         setIsReconnecting(true)
+
+        const shouldReconnect = sessionStorage.getItem('pmj_allow_reconnect') === '1'
+        if (!shouldReconnect) {
+          return
+        }
         
         // Try to connect to last wallet without showing modal
         const starknet = await connectStarknet({ 
@@ -193,6 +213,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         // Silent fail on reconnection - user can manually connect
         console.debug('No wallet to reconnect:', error)
       } finally {
+        sessionStorage.removeItem('pmj_allow_reconnect')
         setIsReconnecting(false)
       }
     }

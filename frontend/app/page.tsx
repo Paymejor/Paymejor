@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { connect as connectStarknet } from '@starknet-io/get-starknet'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
 
 const partnerLogos = [
@@ -61,10 +61,16 @@ export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
+  
+  // Prefetch app route to make navigation snappy
+  useEffect(() => {
+    router.prefetch('/app')
+  }, [router])
 
   const handleLaunchApp = async () => {
     setIsConnecting(true)
     try {
+      // Otherwise, open wallet selector on landing page
       const starknet = await connectStarknet({
         modalMode: 'alwaysAsk',
         modalTheme: 'dark',
@@ -74,6 +80,28 @@ export default function LandingPage() {
         throw new Error('No wallet selected')
       }
 
+      let account = (starknet as any).account
+      if (!account) {
+        try {
+          if (typeof (starknet as any).enable === 'function') {
+            await (starknet as any).enable()
+          } else if (typeof (starknet as any).request === 'function') {
+            await (starknet as any).request({ type: 'wallet_requestAccounts' })
+          }
+        } catch (enableError) {
+          console.warn('Wallet enable/request failed:', enableError)
+        }
+        account = (starknet as any).account
+      }
+
+      if (!account) {
+        throw new Error('No account found. Please unlock your wallet')
+      }
+
+      // Signal /app to show loading modal and allow reconnect
+      sessionStorage.setItem('pmj_show_connect_modal', '1')
+      sessionStorage.setItem('pmj_allow_reconnect', '1')
+
       if (!(starknet as any).account) {
         throw new Error('No account found. Please unlock your wallet')
       }
@@ -82,6 +110,7 @@ export default function LandingPage() {
     } catch (error) {
       console.error('Wallet connection error:', error)
 
+      // Show error toast
       let errorMessage = 'Connection Failed'
       let errorDescription = 'Please try again'
 

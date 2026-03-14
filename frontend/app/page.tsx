@@ -6,18 +6,23 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import ClickSpark from '@/components/ClickSpark'
 import { Shield, Zap, Lock, TrendingUp } from 'lucide-react'
 import { connect as connectStarknet } from '@starknet-io/get-starknet'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
 
 export default function LandingPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isConnecting, setIsConnecting] = useState(false)
+  
+  // Prefetch app route to make navigation snappy
+  useEffect(() => {
+    router.prefetch('/app')
+  }, [router])
 
   const handleLaunchApp = async () => {
     setIsConnecting(true)
     try {
-      // Show wallet selection modal
+      // Open wallet selector on landing page
       const starknet = await connectStarknet({
         modalMode: 'alwaysAsk',
         modalTheme: 'dark',
@@ -26,22 +31,21 @@ export default function LandingPage() {
       if (!starknet) {
         throw new Error('No wallet selected')
       }
-
-      // Check if wallet has an account
       if (!(starknet as any).account) {
         throw new Error('No account found. Please unlock your wallet')
       }
 
-      // Navigate to app after successful connection
+      // Signal /app to show loading modal while it reconnects
+      sessionStorage.setItem('pmj_show_connect_modal', '1')
+
       router.push('/app')
-      
     } catch (error) {
       console.error('Wallet connection error:', error)
-      
+
       // Show error toast
       let errorMessage = 'Connection Failed'
       let errorDescription = 'Please try again'
-      
+
       if (error instanceof Error) {
         if (error.message.includes('No wallet selected')) {
           errorMessage = 'No Wallet Selected'
@@ -56,7 +60,7 @@ export default function LandingPage() {
           errorDescription = error.message
         }
       }
-      
+
       toast({
         title: errorMessage,
         description: errorDescription,

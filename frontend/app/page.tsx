@@ -22,17 +22,6 @@ export default function LandingPage() {
   const handleLaunchApp = async () => {
     setIsConnecting(true)
     try {
-      // First, try silent connect if already connected
-      const silent = await connectStarknet({
-        modalMode: 'neverAsk',
-      })
-
-      if (silent && (silent as any).account) {
-        sessionStorage.setItem('pmj_show_connect_modal', '1')
-        router.push('/app')
-        return
-      }
-
       // Otherwise, open wallet selector on landing page
       const starknet = await connectStarknet({
         modalMode: 'alwaysAsk',
@@ -61,8 +50,9 @@ export default function LandingPage() {
         throw new Error('No account found. Please unlock your wallet')
       }
 
-      // Signal /app to show loading modal while it reconnects
+      // Signal /app to show loading modal and allow reconnect
       sessionStorage.setItem('pmj_show_connect_modal', '1')
+      sessionStorage.setItem('pmj_allow_reconnect', '1')
 
       router.push('/app')
     } catch (error) {

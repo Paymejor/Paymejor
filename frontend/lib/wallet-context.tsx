@@ -191,6 +191,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const reconnectWallet = async () => {
       try {
         setIsReconnecting(true)
+
+        const shouldReconnect = sessionStorage.getItem('pmj_allow_reconnect') === '1'
+        if (!shouldReconnect) {
+          return
+        }
         
         // Try to connect to last wallet without showing modal
         const starknet = await connectStarknet({ 
@@ -208,6 +213,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         // Silent fail on reconnection - user can manually connect
         console.debug('No wallet to reconnect:', error)
       } finally {
+        sessionStorage.removeItem('pmj_allow_reconnect')
         setIsReconnecting(false)
       }
     }

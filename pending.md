@@ -201,3 +201,46 @@ useVesu.ts:448 Error getting pool parameters: RpcError: RPC: starknet_call with 
     at RpcChannel2.fetchEndpoint (rpc_0_10_0.ts:197:12)
     at async useVesu.useCallback[getPoolParameters] (useVesu.ts:425:22)
     at async useCache.useCallback[fetch
+
+  - Missing required environment variable: NEXT_PUBLIC_MAINNET_RPC_URL
+lib/env-validation.ts (197:44) @ <unknown>
+
+
+  195 |   if (result.errors.length > 0) {
+  196 |     console.error('❌ Environment validation failed:');
+> 197 |     result.errors.forEach(error => console.error(`  - ${error}`));
+      |                                            ^
+  198 |   }
+  199 |
+  200 |   if (result.warnings.length > 0) {
+
+    Console Error
+
+
+
+  - Missing required environment variable: NEXT_PUBLIC_SEPOLIA_RPC_URL
+lib/env-validation.ts (197:44) @ <unknown>
+
+
+  195 |   if (result.errors.length > 0) {
+  196 |     console.error('❌ Environment validation failed:');
+> 197 |     result.errors.forEach(error => console.error(`  - ${error}`));
+      |                                            ^
+  198 |   }
+  199 |
+  200 |   if (result.warnings.length > 0) {
+    Console Error
+
+
+
+❌ Environment validation failed:
+lib/env-validation.ts (196:13) @ logValidationResults
+
+
+  194 | export function logValidationResults(result: ValidationResult): void {
+  195 |   if (result.errors.length > 0) {
+> 196 |     console.error('❌ Environment validation failed:');
+      |             ^
+  197 |     result.errors.forEach(error => console.error(`  - ${error}`));
+  198 |   }
+  199 |

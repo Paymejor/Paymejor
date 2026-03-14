@@ -8,14 +8,18 @@
  */
 
 import { useEffect } from 'react';
-import { validateEnvironment, logValidationResults } from '@/lib/env-validation';
 
 export function EnvValidator() {
   useEffect(() => {
     // Only run validation in development mode
     if (process.env.NODE_ENV === 'development') {
-      const result = validateEnvironment();
-      logValidationResults(result);
+      try {
+        const { validateEnvironment, logValidationResults } = require('@/lib/env-validation');
+        const result = validateEnvironment();
+        logValidationResults(result);
+      } catch (error) {
+        console.error('Environment validation error:', error);
+      }
     }
   }, []);
 
